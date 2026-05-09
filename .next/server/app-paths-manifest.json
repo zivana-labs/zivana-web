@@ -1,7 +1,21 @@
 {
-  "/contribute/tasks/page": "app/contribute/tasks/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/callback/page": "app/auth/callback/page.js",
+  "/api/reminders/check/route": "app/api/reminders/check/route.js",
+  "/auth/redirect/page": "app/auth/redirect/page.js",
+  "/api/telegram/webhook/route": "app/api/telegram/webhook/route.js",
+  "/contribute/page": "app/contribute/page.js",
   "/contribute/leaderboard/page": "app/contribute/leaderboard/page.js",
   "/contribute/register/page": "app/contribute/register/page.js",
+  "/contribute/tasks/page": "app/contribute/tasks/page.js",
+  "/page": "app/page.js",
+  "/build/page": "app/build/page.js",
+  "/about/page": "app/about/page.js",
+  "/litepaper/page": "app/litepaper/page.js",
+  "/brand/page": "app/brand/page.js",
+  "/technology/page": "app/technology/page.js",
+  "/protocol/page": "app/protocol/page.js",
+  "/contribute/dashboard/leaderboard/page": "app/contribute/dashboard/leaderboard/page.js",
   "/contribute/dashboard/page": "app/contribute/dashboard/page.js",
   "/contribute/dashboard/tasks/page": "app/contribute/dashboard/tasks/page.js"
 }

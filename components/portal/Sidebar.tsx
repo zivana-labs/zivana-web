@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Logo from '@/components/logo/Logo'
@@ -76,7 +76,7 @@ const NAV_ITEMS = [
   },
 ]
 
-export default function Sidebar() {
+function SidebarContent() {
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -362,5 +362,25 @@ export default function Sidebar() {
         </div>
       )}
     </>
+  )
+}
+
+export default function Sidebar() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0D0B14' }}>
+        <div style={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          border: '2px solid #1C1730',
+          borderTop: '2px solid #6D28D9',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <SidebarContent />
+    </Suspense>
   )
 }
