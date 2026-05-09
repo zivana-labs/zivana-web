@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -459,7 +459,7 @@ function ProfileEditForm({
   )
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [contributor, setContributor] = useState<Contributor | null>(null)
@@ -1521,5 +1521,17 @@ export default function DashboardPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-void flex items-center justify-center">
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #1C1730', borderTop: '2px solid #6D28D9', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }

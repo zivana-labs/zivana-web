@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createPublicClient } from '@/lib/supabase/public'
 
 type Contributor = {
@@ -25,7 +25,7 @@ const CATEGORY_COLOURS: Record<string, string> = {
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-export default function PortalLeaderboardPage() {
+function PortalLeaderboardContent() {
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>('all')
@@ -194,5 +194,17 @@ export default function PortalLeaderboardPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PortalLeaderboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-void flex items-center justify-center">
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #1C1730', borderTop: '2px solid #6D28D9', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    }>
+      <PortalLeaderboardContent />
+    </Suspense>
   )
 }

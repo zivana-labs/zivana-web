@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { createPublicClient } from '@/lib/supabase/public'
 
@@ -34,7 +34,7 @@ const COMPLEXITY_ORDER: Record<string, number> = {
   small: 1, medium: 2, large: 3,
 }
 
-export default function PortalTasksPage() {
+function PortalTasksContent() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [contributor, setContributor] = useState<Contributor | null>(null)
   const [loading, setLoading] = useState(true)
@@ -401,5 +401,17 @@ export default function PortalTasksPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function PortalTasksPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-void flex items-center justify-center">
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #1C1730', borderTop: '2px solid #6D28D9', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    }>
+      <PortalTasksContent />
+    </Suspense>
   )
 }
