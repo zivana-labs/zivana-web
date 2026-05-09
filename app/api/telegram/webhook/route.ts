@@ -5,7 +5,13 @@ export async function POST(request: NextRequest) {
   // Create client inside handler so env vars are always available
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      }
+    }
   )
 
   try {
