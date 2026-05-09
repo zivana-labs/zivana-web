@@ -99,7 +99,7 @@ export default function Logo({
                 fontWeight: 500,
                 fontSize: 8.5 * size,
                 letterSpacing: '0.38em',
-                color: '#4A3E7A',
+                color: '#8B7EC8',
                 lineHeight: 1,
                 textTransform: 'uppercase',
               }}
@@ -148,7 +148,7 @@ export default function Logo({
               fontWeight: 500,
               fontSize: 8.5 * size,
               letterSpacing: '0.38em',
-              color: '#4A3E7A',
+              color: '#8B7EC8',
               lineHeight: 1,
               textTransform: 'uppercase',
             }}

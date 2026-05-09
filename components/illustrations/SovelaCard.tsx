@@ -21,14 +21,14 @@ export default function SovelaCard() {
           style={{
             fontFamily: 'Switzer, sans-serif',
             fontSize: 11,
-            color: '#4A3E7A',
+            color: '#8B7EC8',
             letterSpacing: '0.06em',
           }}
         >
           Hover to see distribution
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M6 1v10M1 6h10" stroke="#4A3E7A" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
+          <path d="M6 1v10M1 6h10" stroke="#8B7EC8" strokeWidth="1.2" strokeLinecap="round" opacity="0.5"/>
         </svg>
       </div>
 
@@ -67,7 +67,7 @@ export default function SovelaCard() {
                   fontWeight: 500,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   marginBottom: 5,
                 }}
               >
@@ -88,7 +88,7 @@ export default function SovelaCard() {
                 style={{
                   fontFamily: 'Switzer, sans-serif',
                   fontSize: 12,
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   marginTop: 2,
                 }}
               >
@@ -103,7 +103,7 @@ export default function SovelaCard() {
                   fontWeight: 500,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   marginBottom: 5,
                 }}
               >
@@ -127,7 +127,7 @@ export default function SovelaCard() {
           <div className="mb-5">
             <div
               className="flex justify-between mb-2"
-              style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#4A3E7A' }}
+              style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}
             >
               <span>Covenant progress</span>
               <span>Month 4 of 12</span>
@@ -173,7 +173,7 @@ export default function SovelaCard() {
                   fontWeight: 500,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   marginBottom: 14,
                 }}
               >
@@ -275,7 +275,7 @@ export default function SovelaCard() {
                   fontWeight: 500,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   marginBottom: 3,
                 }}
               >

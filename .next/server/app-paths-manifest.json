@@ -1,6 +1,7 @@
 {
-  "/page": "app/page.js",
-  "/build/page": "app/build/page.js",
-  "/protocol/page": "app/protocol/page.js",
-  "/about/page": "app/about/page.js"
+  "/contribute/tasks/page": "app/contribute/tasks/page.js",
+  "/contribute/leaderboard/page": "app/contribute/leaderboard/page.js",
+  "/contribute/register/page": "app/contribute/register/page.js",
+  "/contribute/dashboard/page": "app/contribute/dashboard/page.js",
+  "/contribute/dashboard/tasks/page": "app/contribute/dashboard/tasks/page.js"
 }

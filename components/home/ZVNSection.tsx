@@ -90,10 +90,10 @@ export default function ZVNSection() {
             <p className="mb-5" style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 16, color: '#7B6FA8', lineHeight: 1.78 }}>
               It is the economic nervous system of the protocol. Four specific functions the protocol cannot operate without.
             </p>
-            <p className="mb-5" style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#4A3E7A', lineHeight: 1.75 }}>
+            <p className="mb-5" style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#8B7EC8', lineHeight: 1.75 }}>
               $ZVN is a Cardano native asset with a fixed total supply, minted once at genesis, never increased. No venture capital allocation at genesis.
             </p>
-            <p className="mb-10" style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#4A3E7A', lineHeight: 1.75 }}>
+            <p className="mb-10" style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#8B7EC8', lineHeight: 1.75 }}>
               Team tokens vest over four years with a one-year cliff. Community distribution targets Sovela users, the Cardano ecosystem, and the African Web3 community.
             </p>
 

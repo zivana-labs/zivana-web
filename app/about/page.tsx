@@ -32,7 +32,7 @@ export default function AboutPage() {
             <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 17, color: '#7B6FA8', lineHeight: 1.78 }}>
               Hundreds of millions of people across Africa participate in informal economic activity, producing real value and building real reputations, yet remain invisible to formal capital markets. The barrier is not productivity. It is legibility.
             </p>
-            <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 15, color: '#4A3E7A', lineHeight: 1.78 }}>
+            <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 15, color: '#8B7EC8', lineHeight: 1.78 }}>
               Zivana is the infrastructure that makes economic trust visible, portable, and verifiable across boundaries, without requiring anyone to surrender ownership of that trust to any platform. Trust, once earned, should travel with the person who earned it.
             </p>
           </div>
@@ -91,14 +91,14 @@ export default function AboutPage() {
                   <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: 'linear-gradient(180deg,#A78BFA,#4C1D95)' }} />
                 )}
                 <div className="flex-shrink-0 w-20">
-                  <span style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 500, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: p.status === 'Active' ? '#A78BFA' : '#2D2450' }}>
+                  <span style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 500, fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: p.status === 'Active' ? '#A78BFA' : '#6B5FA0' }}>
                     {p.code}
                   </span>
                   <span
                     className="block mt-2 px-2 py-0.5 rounded-full text-center"
                     style={{
                       background: p.status === 'Active' ? 'rgba(109,40,217,0.18)' : 'rgba(45,36,80,0.25)',
-                      color: p.status === 'Active' ? '#A78BFA' : '#4A3E7A',
+                      color: p.status === 'Active' ? '#A78BFA' : '#8B7EC8',
                       fontFamily: 'Switzer, sans-serif',
                       fontSize: 9,
                       letterSpacing: '0.1em',
@@ -110,7 +110,7 @@ export default function AboutPage() {
                 <div className="flex-1">
                   <div className="flex items-baseline justify-between gap-4 mb-2">
                     <span style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 500, fontSize: 15, color: '#E8E6F0' }}>{p.title}</span>
-                    <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#4A3E7A', flexShrink: 0 }}>{p.duration}</span>
+                    <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', flexShrink: 0 }}>{p.duration}</span>
                   </div>
                   <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13.5, color: '#7B6FA8', lineHeight: 1.65 }}>{p.desc}</p>
                 </div>

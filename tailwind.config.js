@@ -18,8 +18,8 @@ module.exports = {
         mist:     '#C4B5FD',
         light:    '#E8E6F0',
         mute:     '#7B6FA8',
-        label:    '#4A3E7A',
-        faint:    '#2D2450',
+        label:    '#8B7EC8',
+        faint:    '#6B5FA0',
       },
       fontFamily: {
   cabinet: ['Cabinet Grotesk', 'sans-serif'],

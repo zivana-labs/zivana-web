@@ -150,9 +150,9 @@ export default function PrimitivesSystem() {
           Click any node to explore
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <circle cx="6" cy="6" r="5" stroke="#4A3E7A" strokeWidth="1" />
-          <path d="M4 5c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2" stroke="#4A3E7A" strokeWidth="1" strokeLinecap="round" />
-          <circle cx="6" cy="9" r="0.8" fill="#4A3E7A" />
+          <circle cx="6" cy="6" r="5" stroke="#8B7EC8" strokeWidth="1" />
+          <path d="M4 5c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2" stroke="#8B7EC8" strokeWidth="1" strokeLinecap="round" />
+          <circle cx="6" cy="9" r="0.8" fill="#8B7EC8" />
         </svg>
       </div>
 
@@ -197,7 +197,7 @@ export default function PrimitivesSystem() {
                   key={`${p.id}-${cId}`}
                   x1={from.x} y1={from.y}
                   x2={to.x} y2={to.y}
-                  stroke={lit ? activeColor : '#2D2450'}
+                  stroke={lit ? activeColor : '#6B5FA0'}
                   strokeWidth={lit ? 1.8 : 1}
                   opacity={lit ? 0.8 : 0.35}
                   strokeDasharray={lit ? 'none' : '4 4'}
@@ -274,7 +274,7 @@ export default function PrimitivesSystem() {
                     : isCentre
                     ? `linear-gradient(135deg, #A78BFA, #6D28D9)`
                     : '#13101E',
-                  border: `${isActive ? 2 : 1}px solid ${connected ? p.color : '#2D2450'}`,
+                  border: `${isActive ? 2 : 1}px solid ${connected ? p.color : '#6B5FA0'}`,
                   boxShadow: isActive
                     ? `0 0 28px ${p.color}55`
                     : isCentre
@@ -367,7 +367,7 @@ export default function PrimitivesSystem() {
             style={{
               fontFamily: 'Courier New, monospace',
               fontSize: 10,
-              color: '#4A3E7A',
+              color: '#8B7EC8',
             }}
           >
             {PRIMITIVES[active].namespace}

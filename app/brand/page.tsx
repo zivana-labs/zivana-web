@@ -129,23 +129,23 @@ export default function BrandPage() {
               <div>
                 <span className="section-label block mb-3">Primary Typeface</span>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', lineHeight: 1.7 }}>
-                  Syne is used for all display and heading contexts. Bold, geometric, and built for density.
+                  Cabinet Grotesk is used for all display and heading contexts. Distinctive, editorial, and built for authority with warmth.
                 </p>
               </div>
               <div className="lg:col-span-3">
                 <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 'clamp(48px,7vw,96px)', color: '#E8E6F0', lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 24 }}>
-                  Syne.
+                  Cabinet Grotesk.
                 </div>
                 <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: '#7B6FA8', letterSpacing: '0.02em' }}>
-                  700 Regular &amp; 800 ExtraBold
+                  600 SemiBold &amp; 700 Bold
                 </p>
-                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#4A3E7A', marginTop: 12, letterSpacing: '0.04em' }}>
+                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#8B7EC8', marginTop: 12, letterSpacing: '0.04em' }}>
                   A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
                 </p>
-                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#4A3E7A', marginTop: 4, letterSpacing: '0.04em' }}>
+                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#8B7EC8', marginTop: 4, letterSpacing: '0.04em' }}>
                   a b c d e f g h i j k l m n o p q r s t u v w x y z
                 </p>
-                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#4A3E7A', marginTop: 4, letterSpacing: '0.04em' }}>
+                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#8B7EC8', marginTop: 4, letterSpacing: '0.04em' }}>
                   1 2 3 4 5 6 7 8 9 0
                 </p>
               </div>
@@ -158,24 +158,53 @@ export default function BrandPage() {
               <div>
                 <span className="section-label block mb-3">Secondary Typeface</span>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', lineHeight: 1.7 }}>
-                  DM Sans carries the human voice in body copy. Warm, legible, accessible at small sizes.
+                  Switzer carries the human voice in body copy. Precise, neutral, and excellent at long-form reading without competing with the headings.
                 </p>
               </div>
               <div className="lg:col-span-3">
                 <div style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 'clamp(48px,7vw,96px)', color: '#E8E6F0', lineHeight: 0.95, letterSpacing: '-0.02em', marginBottom: 24 }}>
-                  DM Sans.
+                  Switzer.
                 </div>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 400, fontSize: 18, color: '#7B6FA8' }}>
                   300 Light, 400 Regular &amp; 500 Medium
                 </p>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#4A3E7A', marginTop: 12 }}>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#8B7EC8', marginTop: 12 }}>
                   A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
                 </p>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#4A3E7A', marginTop: 4 }}>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#8B7EC8', marginTop: 4 }}>
                   a b c d e f g h i j k l m n o p q r s t u v w x y z
                 </p>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#4A3E7A', marginTop: 4 }}>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#8B7EC8', marginTop: 4 }}>
                   1 2 3 4 5 6 7 8 9 0
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Fira Code specimen */}
+          <div className="mb-16 p-12 rounded-2xl border" style={{ background: '#0F0D1A', borderColor: '#1C1730' }}>
+            <div className="grid lg:grid-cols-4 gap-8 items-start">
+              <div>
+                <span className="section-label block mb-3">Code Typeface</span>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', lineHeight: 1.7 }}>
+                  Fira Code is used exclusively for code snippets, namespaces, and technical references. Supports programming ligatures.
+                </p>
+              </div>
+              <div className="lg:col-span-3">
+                <div style={{ fontFamily: 'Fira Code, monospace', fontWeight: 400, fontSize: 'clamp(32px,5vw,64px)', color: '#8B5CF6', lineHeight: 1.0, letterSpacing: '-0.01em', marginBottom: 24 }}>
+                  Fira Code.
+                </div>
+                <p style={{ fontFamily: 'Fira Code, monospace', fontWeight: 400, fontSize: 18, color: '#7B6FA8' }}>
+                  400 Regular &amp; 500 Medium
+                </p>
+                <p style={{ fontFamily: 'Fira Code, monospace', fontWeight: 400, fontSize: 13, color: '#8B7EC8', marginTop: 12 }}>
+                  ZVN.Identity.issue() — ZVN.Trust.proveThreshold()
+                </p>
+                <p style={{ fontFamily: 'Fira Code, monospace', fontWeight: 400, fontSize: 13, color: '#8B7EC8', marginTop: 4 }}>
+                  ZVN.Covenant.create() — ZVN.Distribution.attest()
+                </p>
+                <p style={{ fontFamily: 'Fira Code, monospace', fontWeight: 400, fontSize: 13, color: '#8B7EC8', marginTop: 4 }}>
+                  0 1 2 3 4 5 6 7 8 9 — != === =&gt; &lt;= &gt;=
                 </p>
               </div>
             </div>
@@ -185,17 +214,17 @@ export default function BrandPage() {
           <span className="section-label block mb-8">Typography Hierarchy</span>
           <div className="flex flex-col" style={{ borderTop: '1px solid #1C1730' }}>
             {[
-              { role: 'Display', spec: 'Syne 800 — clamp(56px, 8vw, 100px) — tracking -0.03em', sample: 'Trust Made Visible', size: 48 },
-              { role: 'Heading 1', spec: 'Syne 800 — clamp(36px, 5vw, 72px) — tracking -0.025em', sample: 'Open Protocol Infrastructure', size: 36 },
-              { role: 'Heading 2', spec: 'Syne 700 — clamp(24px, 3vw, 48px) — tracking -0.02em', sample: 'Five Core Primitives', size: 26 },
-              { role: 'Body Lead', spec: 'DM Sans 300 — 16-19px — leading 1.78', sample: 'Making economic capability visible, verifiable, and financeable.', size: 17 },
-              { role: 'Body', spec: 'DM Sans 300 — 13-15px — leading 1.72', sample: 'The protocol exposes five primitives. Every application chooses which ones to use.', size: 14 },
-              { role: 'Label', spec: 'DM Sans 500 — 10-11px — tracking 0.2em — UPPERCASE', sample: 'PROTOCOL PRIMITIVE', size: 10 },
+              { role: 'Display',   spec: 'Cabinet Grotesk 700 — clamp(56px, 8vw, 100px) — tracking -0.03em', sample: 'Trust Made Visible', size: 48 },
+              { role: 'Heading 1', spec: 'Cabinet Grotesk 600 — clamp(36px, 5vw, 72px) — tracking -0.025em', sample: 'Open Protocol Infrastructure', size: 36 },
+              { role: 'Heading 2', spec: 'Cabinet Grotesk 600 — clamp(24px, 3vw, 48px) — tracking -0.02em', sample: 'Five Core Primitives', size: 26 },
+              { role: 'Body Lead', spec: 'Switzer 300 — 16-19px — leading 1.78', sample: 'Making economic capability visible, verifiable, and financeable.', size: 17 },
+              { role: 'Body',      spec: 'Switzer 300 — 13-15px — leading 1.72', sample: 'The protocol exposes five primitives. Every application chooses which ones to use.', size: 14 },
+              { role: 'Label',     spec: 'Switzer 500 — 10-11px — tracking 0.2em — UPPERCASE', sample: 'PROTOCOL PRIMITIVE', size: 10 },
             ].map((t) => (
               <div key={t.role} className="grid grid-cols-5 gap-6 py-6 items-baseline" style={{ borderBottom: '1px solid #1C1730' }}>
                 <div className="col-span-1">
                   <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 500, fontSize: 12, color: '#7B6FA8' }}>{t.role}</p>
-                  <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 10, color: '#4A3E7A', marginTop: 3, lineHeight: 1.5 }}>{t.spec}</p>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 10, color: '#8B7EC8', marginTop: 3, lineHeight: 1.5 }}>{t.spec}</p>
                 </div>
                 <div className="col-span-4">
                   <span
@@ -249,8 +278,8 @@ export default function BrandPage() {
                     <p style={{ fontFamily: 'Courier New, monospace', fontSize: 11, color: tcMute, marginTop: 3 }}>{c.hex}</p>
                   </div>
                   <div style={{ background: '#13101E', padding: '12px 16px' }}>
-                    <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 11, color: '#4A3E7A', lineHeight: 1.5 }}>{c.usage}</p>
-                    <p style={{ fontFamily: 'Courier New, monospace', fontSize: 10, color: '#2D2450', marginTop: 3 }}>rgb({c.rgb})</p>
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 11, color: '#8B7EC8', lineHeight: 1.5 }}>{c.usage}</p>
+                    <p style={{ fontFamily: 'Courier New, monospace', fontSize: 10, color: '#6B5FA0', marginTop: 3 }}>rgb({c.rgb})</p>
                   </div>
                 </div>
               )
@@ -350,10 +379,10 @@ export default function BrandPage() {
         >
           <Logo config="stacked" size={1.0} className="mb-8 mx-auto" />
           <p className="section-label mb-3">Zivana Brand Guidelines v1.0</p>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#4A3E7A' }}>
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#8B7EC8' }}>
             Questions about brand usage: brand@zivana.network
           </p>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 12, color: '#2D2450', marginTop: 6 }}>
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 12, color: '#6B5FA0', marginTop: 6 }}>
             Built in Lagos. Open to the world.
           </p>
         </div>

@@ -14,7 +14,7 @@ export default function Footer() {
             <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#7B6FA8', maxWidth: 340, lineHeight: 1.75 }}>
               Trust infrastructure for the African informal economy. Making economic capability visible, verifiable, and financeable.
             </p>
-            <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 400, fontSize: 12, color: '#4A3E7A', letterSpacing: '0.05em' }}>
+            <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 400, fontSize: 12, color: '#8B7EC8', letterSpacing: '0.05em' }}>
               Built for Africans. Open to the world.
             </p>
           </div>
@@ -66,7 +66,7 @@ export default function Footer() {
         <div style={{ height: 1, background: '#1C1730', margin: '48px 0 32px' }} />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#4A3E7A' }}>
+          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8' }}>
             ZIVANA™ Protocol v0 — NexTrium Global Innovations Ltd — Lagos, Nigeria
           </span>
           <span

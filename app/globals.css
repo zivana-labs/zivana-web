@@ -15,7 +15,7 @@
   --mist:     #C4B5FD;
   --light:    #E8E6F0;
   --mute:     #7B6FA8;
-  --label:    #4A3E7A;
+  --label:    #8B7EC8;
 }
 
 * {
@@ -31,7 +31,7 @@ html {
 body {
   background-color: #0D0B14;
   color: #E8E6F0;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: 'Switzer', system-ui, sans-serif;
   font-weight: 300;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -45,7 +45,7 @@ body {
 
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: #0D0B14; }
-::-webkit-scrollbar-thumb { background: #2D2450; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: #6B5FA0; border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: #4C1D95; }
 
 @layer utilities {
@@ -88,12 +88,12 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
   }
   .section-label {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Switzer', sans-serif;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: #4A3E7A;
+    color: #8B7EC8;
   }
   .card-base {
     background: #13101E;
@@ -111,7 +111,7 @@ body {
     color: white;
     padding: 14px 32px;
     border-radius: 9999px;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Switzer', sans-serif;
     font-size: 14px;
     font-weight: 500;
     transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -130,7 +130,7 @@ body {
     padding: 13px 31px;
     border-radius: 9999px;
     border: 1px solid #1E1640;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Switzer', sans-serif;
     font-size: 14px;
     font-weight: 400;
     transition: border-color 0.2s ease, color 0.2s ease;

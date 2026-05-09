@@ -11,35 +11,55 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/build/page": [
+    "/contribute/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/build/page.js"
+      "static/chunks/app/contribute/page.js"
+    ],
+    "/auth/callback/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/auth/callback/page.js"
+    ],
+    "/contribute/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/contribute/dashboard/page.js"
+    ],
+    "/contribute/tasks/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/contribute/tasks/page.js"
+    ],
+    "/contribute/leaderboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/contribute/leaderboard/page.js"
+    ],
+    "/contribute/register/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/contribute/register/page.js"
+    ],
+    "/contribute/dashboard/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/contribute/dashboard/layout.js"
     ],
     "/about/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/about/page.js"
     ],
-    "/brand/page": [
+    "/contribute/dashboard/leaderboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/brand/page.js"
+      "static/chunks/app/contribute/dashboard/leaderboard/page.js"
     ],
-    "/protocol/page": [
+    "/contribute/dashboard/tasks/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/protocol/page.js"
-    ],
-    "/technology/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/technology/page.js"
-    ],
-    "/litepaper/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/litepaper/page.js"
+      "static/chunks/app/contribute/dashboard/tasks/page.js"
     ]
   }
 }

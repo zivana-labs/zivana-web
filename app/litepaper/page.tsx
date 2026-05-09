@@ -40,7 +40,7 @@ export default function LitepaperPage() {
           <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 16, color: '#7B6FA8', lineHeight: 1.78 }}>
             The Zivana Protocol litepaper is being written alongside the build. It will document the protocol's economic model, governance design, and technical architecture in full.
           </p>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13.5, color: '#4A3E7A', lineHeight: 1.72 }}>
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13.5, color: '#8B7EC8', lineHeight: 1.72 }}>
             In the meantime, the Master Build Plan covers all technical and architectural decisions in detail.
           </p>
         </div>

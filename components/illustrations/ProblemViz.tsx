@@ -92,7 +92,7 @@ export default function ProblemViz() {
                 style={{
                   fontFamily: 'Switzer, sans-serif',
                   fontSize: 9,
-                  color: '#4A3E7A',
+                  color: '#8B7EC8',
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase',
                   marginTop: 3,
@@ -177,7 +177,7 @@ export default function ProblemViz() {
             style={{
               fontFamily: 'Switzer, sans-serif',
               fontSize: 11,
-              color: '#4A3E7A',
+              color: '#8B7EC8',
             }}
           >
             Available capital
@@ -186,7 +186,7 @@ export default function ProblemViz() {
             style={{
               fontFamily: 'Switzer, sans-serif',
               fontSize: 11,
-              color: '#4A3E7A',
+              color: '#8B7EC8',
             }}
           >
             Informal economy

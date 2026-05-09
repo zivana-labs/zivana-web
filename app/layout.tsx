@@ -1,13 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Nav from '@/components/nav/Nav'
-import Footer from '@/components/footer/Footer'
+import SiteShell from '@/components/SiteShell'
 
 export const metadata: Metadata = {
   title: 'Zivana Protocol — Trust Infrastructure for the African Informal Economy',
   description: 'An open Layer 2 protocol on Cardano and Midnight that makes economic capability visible, verifiable, and financeable without requiring informal actors to become formal first.',
   keywords: ['Zivana', 'Cardano', 'Midnight', 'blockchain', 'Africa', 'trust', 'informal economy'],
-  
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
@@ -35,9 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-void text-light antialiased">
-        <Nav />
-        <main>{children}</main>
-        <Footer />
+        <SiteShell>{children}</SiteShell>
       </body>
     </html>
   )

@@ -18,7 +18,7 @@ export default function RepoGrid() {
         >
           <div className="flex items-center justify-between">
             <span style={{ fontFamily: 'Courier New, monospace', fontSize: 12, color: '#A78BFA' }}>{r.name}</span>
-            <span className="px-2 py-0.5 rounded-full" style={{ background: '#1E1640', color: '#4A3E7A', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.08em' }}>{r.phase}</span>
+            <span className="px-2 py-0.5 rounded-full" style={{ background: '#1E1640', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.08em' }}>{r.phase}</span>
           </div>
           <span style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 12, color: '#7B6FA8', lineHeight: 1.6 }}>{r.desc}</span>
         </a>

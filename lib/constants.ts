@@ -5,6 +5,7 @@ export const NAV_LINKS = [
   { label: 'Technology', href: '/technology' },
   { label: 'Litepaper',  href: '/litepaper' },
   { label: 'Build',      href: '/build' },
+  { label: 'Contribute',  href: '/contribute' },
   { label: 'Brand',      href: '/brand' },
 ]
 
@@ -140,3 +141,11 @@ export const REPOS = [
   { name: 'zivana-token',       desc: '$ZVN minting policy, vesting contract, Community Access Fund',                     phase: 'Phase 1' },
   { name: 'zivana-docs',        desc: 'Full protocol documentation — architecture reference, SDK guides, tutorials',      phase: 'Phase 2' },
 ]
+
+export const CATEGORY_COLOURS: Record<string, string> = {
+  technical:  '#7DD3FC',
+  design:     '#C084FC',
+  community:  '#5EEAD4',
+  research:   '#FCD34D',
+  operations: '#A78BFA',
+}
