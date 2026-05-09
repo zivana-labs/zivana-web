@@ -2,18 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
-  // Create client inside handler so env vars are always available
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      }
-    }
-  )
-
   try {
     const body = await request.json()
     const message = body?.message
@@ -21,6 +9,25 @@ export async function POST(request: NextRequest) {
 
     const chatId = message.chat?.id?.toString()
     const text = message.text?.trim() ?? ''
+
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    console.log('Key prefix:', serviceRoleKey?.slice(0, 6) + '...')
+    if (!serviceRoleKey) {
+      console.error('Missing SUPABASE_SERVICE_ROLE_KEY')
+      await sendMessage(chatId, 'Service configuration error. Please contact the core team.')
+      return NextResponse.json({ ok: true })
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        }
+      }
+    )
 
     if (text.startsWith('/start ')) {
       const contributorId = text.replace('/start ', '').trim()
