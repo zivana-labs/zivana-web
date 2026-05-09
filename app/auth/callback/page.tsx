@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabase/client'
 
 export default function CallbackPage() {
   const router = useRouter()
@@ -21,41 +21,22 @@ export default function CallbackPage() {
       return
     }
 
-    const supabase = createClient()
+    const handleCallback = async () => {
+      // Small delay to ensure the fragment is processed by Supabase client
+      await new Promise(resolve => setTimeout(resolve, 500))
 
-    // Listen for auth state change — Supabase handles the code exchange automatically
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          subscription.unsubscribe()
-          router.replace('/contribute/dashboard')
-        }
-      }
-    )
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-    // Also poll as fallback in case the event already fired
-    const poll = setInterval(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        clearInterval(poll)
-        subscription.unsubscribe()
         router.replace('/contribute/dashboard')
+        return
       }
-    }, 500)
 
-    // Timeout after 10 seconds
-    const timeout = setTimeout(() => {
-      clearInterval(poll)
-      subscription.unsubscribe()
       setErrorMsg('Sign in link is invalid or has expired.')
       setChecking(false)
-    }, 10000)
-
-    return () => {
-      clearInterval(poll)
-      clearTimeout(timeout)
-      subscription.unsubscribe()
     }
+
+    handleCallback()
   }, [router])
 
   if (checking) {
@@ -65,7 +46,9 @@ export default function CallbackPage() {
         style={{ background: '#0D0B14' }}
       >
         <div style={{
-          width: 40, height: 40, borderRadius: '50%',
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
           border: '2px solid #1C1730',
           borderTop: '2px solid #6D28D9',
           animation: 'spin 0.8s linear infinite',
@@ -89,9 +72,9 @@ export default function CallbackPage() {
       >
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}
+          style={{ background: 'rgba(109,40,217,0.1)', border: '1px solid rgba(109,40,217,0.25)' }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
             <circle cx="12" cy="12" r="10" />
             <path d="M12 8v4M12 16h.01" strokeWidth="2" />
           </svg>
