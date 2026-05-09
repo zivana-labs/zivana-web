@@ -2,47 +2,88 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
+  const debugLog: string[] = []
+
   try {
-    const body = await request.json()
+    // Step 1 — Log all environment variables availability
+    debugLog.push(`SUPABASE_URL exists: ${!!process.env.NEXT_PUBLIC_SUPABASE_URL}`)
+    debugLog.push(`SUPABASE_URL value: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
+    debugLog.push(`SERVICE_ROLE_KEY exists: ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`)
+    debugLog.push(`SERVICE_ROLE_KEY prefix: ${process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 10) ?? 'UNDEFINED'}`)
+    debugLog.push(`BOT_TOKEN exists: ${!!process.env.TELEGRAM_BOT_TOKEN}`)
+    debugLog.push(`BOT_TOKEN prefix: ${process.env.TELEGRAM_BOT_TOKEN?.slice(0, 10) ?? 'UNDEFINED'}`)
+
+    // Step 2 — Parse request body
+    const rawBody = await request.text()
+    debugLog.push(`Raw body length: ${rawBody.length}`)
+    debugLog.push(`Raw body: ${rawBody.slice(0, 500)}`)
+
+    const body = JSON.parse(rawBody)
     const message = body?.message
-    if (!message) return NextResponse.json({ ok: true })
+    debugLog.push(`Message exists: ${!!message}`)
+    debugLog.push(`Message text: ${message?.text ?? 'NO TEXT'}`)
+    debugLog.push(`Chat ID: ${message?.chat?.id ?? 'NO CHAT ID'}`)
+
+    if (!message) {
+      console.log('DEBUG:', debugLog.join('\n'))
+      return NextResponse.json({ ok: true })
+    }
 
     const chatId = message.chat?.id?.toString()
     const text = message.text?.trim() ?? ''
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    console.log('Key prefix:', serviceRoleKey?.slice(0, 6) + '...')
-    if (!serviceRoleKey) {
-      console.error('Missing SUPABASE_SERVICE_ROLE_KEY')
-      await sendMessage(chatId, 'Service configuration error. Please contact the core team.')
-      return NextResponse.json({ ok: true })
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        }
-      }
-    )
-
+    // Step 3 — Handle /start command
     if (text.startsWith('/start ')) {
       const contributorId = text.replace('/start ', '').trim()
+      debugLog.push(`Contributor ID from message: "${contributorId}"`)
+      debugLog.push(`Contributor ID length: ${contributorId.length}`)
 
       if (!contributorId) {
+        debugLog.push('ERROR: Empty contributor ID')
+        console.log('DEBUG:', debugLog.join('\n'))
         await sendMessage(chatId, 'Invalid link. Please use the connect button from your Zivana dashboard.')
         return NextResponse.json({ ok: true })
       }
 
-      // Log for debugging
-      console.log('Linking contributor:', contributorId, 'to chat:', chatId)
-      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-      console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+      // Step 4 — Create Supabase client
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-      const { data, error } = await supabase
+      if (!serviceRoleKey || !supabaseUrl) {
+        debugLog.push(`ERROR: Missing env vars. URL: ${!!supabaseUrl}, KEY: ${!!serviceRoleKey}`)
+        console.log('DEBUG:', debugLog.join('\n'))
+        await sendMessage(chatId, 'Configuration error. Please contact the core team.')
+        return NextResponse.json({ ok: true })
+      }
+
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        }
+      })
+
+      debugLog.push('Supabase client created successfully')
+
+      // Step 5 — First check if contributor exists
+      const { data: existing, error: fetchError } = await supabase
+        .from('contributors')
+        .select('id, email, telegram_chat_id')
+        .eq('id', contributorId)
+        .single()
+
+      debugLog.push(`Fetch existing contributor - data: ${JSON.stringify(existing)}`)
+      debugLog.push(`Fetch existing contributor - error: ${JSON.stringify(fetchError)}`)
+
+      if (fetchError || !existing) {
+        debugLog.push('ERROR: Contributor not found or fetch failed')
+        console.log('DEBUG:', debugLog.join('\n'))
+        await sendMessage(chatId, `No contributor found with ID: ${contributorId.slice(0, 8)}... Please use the connect button from your dashboard.`)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Step 6 — Update the contributor
+      const { data: updated, error: updateError } = await supabase
         .from('contributors')
         .update({
           telegram_chat_id: chatId,
@@ -51,16 +92,13 @@ export async function POST(request: NextRequest) {
         .eq('id', contributorId)
         .select()
 
-      console.log('Update result:', { data, error })
+      debugLog.push(`Update result - data: ${JSON.stringify(updated)}`)
+      debugLog.push(`Update result - error: ${JSON.stringify(updateError)}`)
 
-      if (error) {
-        console.error('Supabase update error:', error.message, error.code, error.details)
-        await sendMessage(chatId, `Something went wrong linking your account. Error: ${error.message}`)
-        return NextResponse.json({ ok: true })
-      }
+      console.log('DEBUG:', debugLog.join('\n'))
 
-      if (!data || data.length === 0) {
-        await sendMessage(chatId, 'No contributor found with that ID. Please use the connect button from your dashboard.')
+      if (updateError) {
+        await sendMessage(chatId, `Update failed: ${updateError.message} (code: ${updateError.code})`)
         return NextResponse.json({ ok: true })
       }
 
@@ -73,23 +111,27 @@ export async function POST(request: NextRequest) {
     }
 
     if (text === '/stop') {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      })
+
       await supabase
         .from('contributors')
-        .update({
-          telegram_chat_id: null,
-          notification_telegram: false,
-        })
+        .update({ telegram_chat_id: null, notification_telegram: false })
         .eq('telegram_chat_id', chatId)
 
-      await sendMessage(chatId, 'Your Telegram account has been disconnected from Zivana Protocol. You can reconnect at any time from your dashboard.')
+      await sendMessage(chatId, 'Your Telegram account has been disconnected from Zivana Protocol.')
       return NextResponse.json({ ok: true })
     }
 
+    debugLog.push(`Unhandled message text: "${text}"`)
+    console.log('DEBUG:', debugLog.join('\n'))
     await sendMessage(chatId, 'Use the connect button from your Zivana dashboard to link your account.')
     return NextResponse.json({ ok: true })
 
-  } catch (err) {
-    console.error('Telegram webhook error:', err)
+  } catch (err: any) {
+    console.error('Telegram webhook FATAL error:', err?.message, err?.stack)
     return NextResponse.json({ ok: true })
   }
 }
