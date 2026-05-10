@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   const debugLog: string[] = []
@@ -35,70 +34,69 @@ export async function POST(request: NextRequest) {
     // Step 3 — Handle /start command
     if (text.startsWith('/start ')) {
       const contributorId = text.replace('/start ', '').trim()
-      debugLog.push(`Contributor ID from message: "${contributorId}"`)
-      debugLog.push(`Contributor ID length: ${contributorId.length}`)
+      debugLog.push(`Contributor ID: "${contributorId}"`)
 
       if (!contributorId) {
-        debugLog.push('ERROR: Empty contributor ID')
-        console.log('DEBUG:', debugLog.join('\n'))
         await sendMessage(chatId, 'Invalid link. Please use the connect button from your Zivana dashboard.')
-        return NextResponse.json({ ok: true })
-      }
-
-      // Step 4 — Create Supabase client
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-      if (!serviceRoleKey || !supabaseUrl) {
-        debugLog.push(`ERROR: Missing env vars. URL: ${!!supabaseUrl}, KEY: ${!!serviceRoleKey}`)
         console.log('DEBUG:', debugLog.join('\n'))
-        await sendMessage(chatId, 'Configuration error. Please contact the core team.')
         return NextResponse.json({ ok: true })
       }
 
-      const supabase = createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+      debugLog.push(`URL exists: ${!!supabaseUrl}`)
+      debugLog.push(`Key exists: ${!!serviceKey}`)
+      debugLog.push(`Key prefix: ${serviceKey?.slice(0, 10)}`)
+
+      // Use direct REST API call with both headers explicitly set
+      const fetchResp = await fetch(
+        `${supabaseUrl}/rest/v1/contributors?id=eq.${contributorId}&select=id,email`,
+        {
+          method: 'GET',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
         }
-      })
+      )
 
-      debugLog.push('Supabase client created successfully')
+      const fetchData = await fetchResp.json()
+      debugLog.push(`Fetch status: ${fetchResp.status}`)
+      debugLog.push(`Fetch data: ${JSON.stringify(fetchData)}`)
 
-      // Step 5 — First check if contributor exists
-      const { data: existing, error: fetchError } = await supabase
-        .from('contributors')
-        .select('id, email, telegram_chat_id')
-        .eq('id', contributorId)
-        .single()
-
-      debugLog.push(`Fetch existing contributor - data: ${JSON.stringify(existing)}`)
-      debugLog.push(`Fetch existing contributor - error: ${JSON.stringify(fetchError)}`)
-
-      if (fetchError || !existing) {
-        debugLog.push('ERROR: Contributor not found or fetch failed')
+      if (fetchResp.status !== 200 || !fetchData || fetchData.length === 0) {
         console.log('DEBUG:', debugLog.join('\n'))
-        await sendMessage(chatId, `No contributor found with ID: ${contributorId.slice(0, 8)}... Please use the connect button from your dashboard.`)
+        await sendMessage(chatId, `No contributor found. Please use the connect button from your dashboard.`)
         return NextResponse.json({ ok: true })
       }
 
-      // Step 6 — Update the contributor
-      const { data: updated, error: updateError } = await supabase
-        .from('contributors')
-        .update({
-          telegram_chat_id: chatId,
-          notification_telegram: true,
-        })
-        .eq('id', contributorId)
-        .select()
+      // Update using direct REST API
+      const updateResp = await fetch(
+        `${supabaseUrl}/rest/v1/contributors?id=eq.${contributorId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            telegram_chat_id: chatId,
+            notification_telegram: true,
+          }),
+        }
+      )
 
-      debugLog.push(`Update result - data: ${JSON.stringify(updated)}`)
-      debugLog.push(`Update result - error: ${JSON.stringify(updateError)}`)
-
+      const updateData = await updateResp.json()
+      debugLog.push(`Update status: ${updateResp.status}`)
+      debugLog.push(`Update data: ${JSON.stringify(updateData)}`)
       console.log('DEBUG:', debugLog.join('\n'))
 
-      if (updateError) {
-        await sendMessage(chatId, `Update failed: ${updateError.message} (code: ${updateError.code})`)
+      if (updateResp.status !== 200) {
+        await sendMessage(chatId, `Failed to link account. Error: ${JSON.stringify(updateData)}`)
         return NextResponse.json({ ok: true })
       }
 
@@ -111,15 +109,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (text === '/stop') {
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-      })
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-      await supabase
-        .from('contributors')
-        .update({ telegram_chat_id: null, notification_telegram: false })
-        .eq('telegram_chat_id', chatId)
+      await fetch(
+        `${supabaseUrl}/rest/v1/contributors?telegram_chat_id=eq.${chatId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ telegram_chat_id: null, notification_telegram: false }),
+        }
+      )
 
       await sendMessage(chatId, 'Your Telegram account has been disconnected from Zivana Protocol.')
       return NextResponse.json({ ok: true })
