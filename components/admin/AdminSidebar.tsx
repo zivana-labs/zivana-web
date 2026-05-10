@@ -223,7 +223,7 @@ function AdminSidebarContent() {
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(109,40,217,0.06)')}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M10 3L5 8l5 5" />
+            <path d="M8 1L1 8l7 7M1 8h14" />
           </svg>
           <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13 }}>
             Contributor portal
