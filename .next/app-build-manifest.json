@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/admin/dashboard/page": [
+    "/admin/dashboard/contributors/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/page.js"
+      "static/chunks/app/admin/dashboard/contributors/page.js"
     ],
     "/admin/dashboard/layout": [
       "static/chunks/webpack.js",
@@ -16,25 +16,30 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/admin/dashboard/contributors/page": [
+    "/contribute/signin/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/contributors/page.js"
+      "static/chunks/app/contribute/signin/page.js"
     ],
-    "/admin/dashboard/contributions/page": [
+    "/auth/callback/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/contributions/page.js"
+      "static/chunks/app/auth/callback/page.js"
     ],
-    "/admin/dashboard/tasks/page": [
+    "/contribute/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/tasks/page.js"
+      "static/chunks/app/contribute/dashboard/page.js"
     ],
-    "/admin/dashboard/team/page": [
+    "/contribute/dashboard/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/admin/dashboard/team/page.js"
+      "static/chunks/app/contribute/dashboard/layout.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

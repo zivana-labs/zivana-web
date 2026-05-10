@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Suspense } from 'react'
 
@@ -38,12 +38,24 @@ const STATUS_OPTIONS = ['all', 'pending', 'active', 'inactive']
 
 function ContributorsContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState(searchParams.get('filter') ?? 'all')
+  const [filter, setFilter] = useState(searchParams.get('filter') ?? 'pending')
+
+  function handleFilterChange(newFilter: string) {
+    setFilter(newFilter)
+    const params = new URLSearchParams(window.location.search)
+    if (newFilter === 'pending') {
+      params.delete('filter')
+    } else {
+      params.set('filter', newFilter)
+    }
+    router.replace(`/admin/dashboard/contributors?${params.toString()}`)
+  }
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Contributor | null>(null)
-  const [actionLoading, setActionLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState('')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 6
@@ -72,8 +84,8 @@ function ContributorsContent() {
     setPage(1)
   }, [filter, search])
 
-  async function handleStatusChange(contributorId: string, newStatus: string) {
-    setActionLoading(true)
+  async function handleStatusChange(contributorId: string, newStatus: string, actionType: string) {
+    setActionLoading(actionType)
     const supabase = createClient()
 
     const { error } = await supabase
@@ -82,12 +94,50 @@ function ContributorsContent() {
       .eq('id', contributorId)
 
     if (!error) {
+      // Send approval email via internal API route
+      if (newStatus === 'active' && selected) {
+        const contributorName = selected.contributor_type === 'team' && selected.team_name
+          ? selected.team_name
+          : selected.name
+
+        await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: selected.email,
+            name: contributorName,
+            subject: 'Your Zivana contributor account is approved',
+            htmlContent: `
+              <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0D0B14;padding:40px 32px;border-radius:16px;">
+                <h1 style="font-size:22px;font-weight:600;color:#E8E6F0;margin:0 0 12px;letter-spacing:-0.02em;">
+                  Welcome to Zivana, ${contributorName}
+                </h1>
+                <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 24px;">
+                  Your contributor application has been reviewed and approved by the core team. You now have full access to the contributor portal.
+                </p>
+                <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 32px;">
+                  Sign in to your dashboard to browse open tasks, claim work, and start earning points toward your $ZVN allocation at token launch.
+                </p>
+                <a href="https://zivana.network/contribute/signin"
+                  style="display:inline-block;background:linear-gradient(135deg,#A78BFA,#6D28D9,#4C1D95);color:white;padding:14px 28px;border-radius:9999px;font-size:14px;font-weight:500;text-decoration:none;">
+                  Sign in to your dashboard
+                </a>
+                <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
+                  <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Protocol — zivana.network</p>
+                  <p style="font-size:11px;color:#2D2450;margin:4px 0 0;">You are receiving this because you applied to contribute to Zivana Protocol.</p>
+                </div>
+              </div>
+            `,
+          }),
+        })
+      }
+
       setActionSuccess(`Contributor ${newStatus === 'active' ? 'approved' : newStatus} successfully`)
       setSelected(null)
       await fetchContributors()
       setTimeout(() => setActionSuccess(''), 3000)
     }
-    setActionLoading(false)
+    setActionLoading(null)
   }
 
   const filtered = contributors.filter(c =>
@@ -153,7 +203,7 @@ function ContributorsContent() {
           {STATUS_OPTIONS.map((s) => (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              onClick={() => handleFilterChange(s)}
               style={{
                 padding: '5px 14px',
                 borderRadius: 20,
@@ -382,18 +432,18 @@ function ContributorsContent() {
             <div className="p-6 border-t flex flex-wrap gap-3" style={{ borderColor: '#1C1730' }}>
               {selected.status === 'pending' && (
                 <button
-                  onClick={() => handleStatusChange(selected.id, 'active')}
-                  disabled={actionLoading}
+                  onClick={() => handleStatusChange(selected.id, 'active', 'approve')}
+                  disabled={actionLoading !== null}
                   className="btn-primary"
-                  style={{ fontSize: 13, opacity: actionLoading ? 0.7 : 1 }}
+                  style={{ fontSize: 13, opacity: actionLoading !== null ? 0.7 : 1 }}
                 >
-                  {actionLoading ? 'Approving...' : 'Approve contributor'}
+                  {actionLoading === 'approve' ? 'Approving...' : 'Approve contributor'}
                 </button>
               )}
               {selected.status === 'active' && (
                 <button
-                  onClick={() => handleStatusChange(selected.id, 'inactive')}
-                  disabled={actionLoading}
+                  onClick={() => handleStatusChange(selected.id, 'inactive', 'deactivate')}
+                  disabled={actionLoading !== null}
                   style={{
                     fontSize: 13,
                     padding: '10px 20px',
@@ -403,26 +453,26 @@ function ContributorsContent() {
                     color: '#FCA5A5',
                     fontFamily: 'Switzer, sans-serif',
                     cursor: 'pointer',
-                    opacity: actionLoading ? 0.7 : 1,
+                    opacity: actionLoading !== null ? 0.7 : 1,
                   }}
                 >
-                  {actionLoading ? 'Processing...' : 'Deactivate'}
+                  {actionLoading === 'deactivate' ? 'Deactivating...' : 'Deactivate'}
                 </button>
               )}
               {selected.status === 'inactive' && (
                 <button
-                  onClick={() => handleStatusChange(selected.id, 'active')}
-                  disabled={actionLoading}
+                  onClick={() => handleStatusChange(selected.id, 'active', 'reactivate')}
+                  disabled={actionLoading !== null}
                   className="btn-primary"
-                  style={{ fontSize: 13, opacity: actionLoading ? 0.7 : 1 }}
+                  style={{ fontSize: 13, opacity: actionLoading !== null ? 0.7 : 1 }}
                 >
-                  {actionLoading ? 'Processing...' : 'Reactivate'}
+                  {actionLoading === 'reactivate' ? 'Reactivating...' : 'Reactivate'}
                 </button>
               )}
               {selected.status === 'pending' && (
                 <button
-                  onClick={() => handleStatusChange(selected.id, 'inactive')}
-                  disabled={actionLoading}
+                  onClick={() => handleStatusChange(selected.id, 'inactive', 'reject')}
+                  disabled={actionLoading !== null}
                   style={{
                     fontSize: 13,
                     padding: '10px 20px',
@@ -432,10 +482,10 @@ function ContributorsContent() {
                     color: '#8B7EC8',
                     fontFamily: 'Switzer, sans-serif',
                     cursor: 'pointer',
-                    opacity: actionLoading ? 0.7 : 1,
+                    opacity: actionLoading !== null ? 0.7 : 1,
                   }}
                 >
-                  {actionLoading ? 'Processing...' : 'Reject'}
+                  {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
                 </button>
               )}
             </div>

@@ -1,6 +1,7 @@
 {
-  "/admin/dashboard/tasks/page": "app/admin/dashboard/tasks/page.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/contribute/signin/page": "app/contribute/signin/page.js",
+  "/auth/callback/page": "app/auth/callback/page.js",
   "/admin/dashboard/contributors/page": "app/admin/dashboard/contributors/page.js",
-  "/admin/dashboard/contributions/page": "app/admin/dashboard/contributions/page.js"
+  "/contribute/dashboard/page": "app/contribute/dashboard/page.js"
 }
