@@ -103,7 +103,7 @@ function SidebarContent() {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/contribute')
+    router.push('/contribute/signin')
   }
 
   const displayName = contributor?.contributor_type === 'team' && contributor?.team_name

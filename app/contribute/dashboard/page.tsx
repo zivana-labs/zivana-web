@@ -487,7 +487,7 @@ function DashboardContent() {
       const supabase = createClient()
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        router.push('/contribute')
+        router.push('/contribute/signin')
         return
       }
       setUser(user)
@@ -542,7 +542,7 @@ function DashboardContent() {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/contribute')
+    router.push('/contribute/signin')
   }
 
   async function handleSubmitContribution(e: React.FormEvent) {

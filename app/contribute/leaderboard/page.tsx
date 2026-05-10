@@ -392,7 +392,7 @@ export default function LeaderboardPage() {
           >
             Every verified contribution earns public points and a proportional share of the $ZVN token supply.
           </p>
-          <Link href="/contribute" className="btn-primary" style={{ fontSize: 13 }}>
+          <Link href="/contribute/signin" className="btn-primary" style={{ fontSize: 13 }}>
             Start contributing
           </Link>
         </div>

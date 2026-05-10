@@ -317,7 +317,7 @@ export default function TasksPage() {
                         </span>
                       </div>
                       <Link
-                        href="/contribute"
+                        href="/contribute/signin"
                         className="btn-primary"
                         style={{ fontSize: 11, padding: '8px 16px' }}
                       >

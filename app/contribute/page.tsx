@@ -1,8 +1,6 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 const CATEGORIES = [
   { id: 'technical',  label: 'Technical',  color: '#7DD3FC', desc: 'Code, smart contracts, SDK, documentation' },
@@ -20,36 +18,6 @@ const HOW_IT_WORKS = [
 ]
 
 export default function ContributePage() {
-  const [email, setEmail] = useState('')
-  const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email) return
-    setSending(true)
-    setError('')
-
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        shouldCreateUser: true,
-      },
-    })
-
-    if (error) {
-      setError(error.message)
-      setSending(false)
-      return
-    }
-
-    setSent(true)
-    setSending(false)
-  }
-
   return (
     <div className="bg-void min-h-screen">
 
@@ -104,80 +72,12 @@ export default function ContributePage() {
             </Link>
           </div>
 
-          {/* Magic link sign in */}
-          <div
-            className="max-w-md mx-auto rounded-2xl border p-8"
-            style={{ background: 'rgba(19,16,30,0.8)', borderColor: '#1C1730', backdropFilter: 'blur(20px)' }}
-          >
-            {sent ? (
-              <div className="flex flex-col items-center gap-4">
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center"
-                  style={{ background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(109,40,217,0.3)' }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M3 10l5 5L17 4" />
-                  </svg>
-                </div>
-                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0' }}>
-                  Check your email
-                </p>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', textAlign: 'center', lineHeight: 1.65 }}>
-                  We sent a sign in link to <span style={{ color: '#A78BFA' }}>{email}</span>. Click it to access your contributor dashboard.
-                </p>
-              </div>
-            ) : (
-              <>
-                <p
-                  className="mb-6"
-                  style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}
-                >
-                  Sign in or register
-                </p>
-                <form onSubmit={handleMagicLink} className="flex flex-col gap-3">
-                  <input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: '#0D0B14',
-                      border: '1px solid #1C1730',
-                      borderRadius: 10,
-                      color: '#E8E6F0',
-                      fontFamily: 'Switzer, sans-serif',
-                      fontSize: 14,
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
-                  />
-                  {error && (
-                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#EF4444' }}>
-                      {error}
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={sending}
-                    className="btn-primary w-full justify-center"
-                    style={{ opacity: sending ? 0.7 : 1 }}
-                  >
-                    {sending ? 'Sending link...' : 'Send sign in link'}
-                  </button>
-                </form>
-                <p
-                  className="mt-4"
-                  style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 11, color: '#8B7EC8', textAlign: 'center', lineHeight: 1.6 }}
-                >
-                  New contributors are reviewed by the core team before activation. Enter your email to get started.
-                </p>
-              </>
-            )}
-          </div>
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#6B5FA0', marginTop: 8 }}>
+            Already a contributor?{' '}
+            <Link href="/contribute/signin" style={{ color: '#A78BFA', textDecoration: 'none' }}>
+              Sign in to your dashboard
+            </Link>
+          </p>
         </div>
       </section>
 

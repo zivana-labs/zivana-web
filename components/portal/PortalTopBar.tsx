@@ -31,7 +31,7 @@ export default function PortalTopBar() {
   async function handleSignOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/contribute')
+    router.push('/contribute/signin')
   }
 
   if (loading || !user) return null
