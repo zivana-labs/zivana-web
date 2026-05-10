@@ -1,9 +1,6 @@
 {
   "/contribute/page": "app/contribute/page.js",
-  "/contribute/leaderboard/page": "app/contribute/leaderboard/page.js",
-  "/contribute/tasks/page": "app/contribute/tasks/page.js",
-  "/auth/callback/page": "app/auth/callback/page.js",
   "/contribute/signin/page": "app/contribute/signin/page.js",
-  "/contribute/register/page": "app/contribute/register/page.js",
-  "/contribute/dashboard/page": "app/contribute/dashboard/page.js"
+  "/contribute/dashboard/page": "app/contribute/dashboard/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js"
 }

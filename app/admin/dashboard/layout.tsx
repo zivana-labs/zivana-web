@@ -1,15 +1,13 @@
-import Sidebar from '@/components/portal/Sidebar'
-import AdminSwitchButton from '@/components/portal/AdminSwitchButton'
+import AdminSidebar from '@/components/admin/AdminSidebar'
 
-export default function DashboardLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
     <div className="min-h-screen bg-void">
-      <Sidebar />
-      <AdminSwitchButton />
+      <AdminSidebar />
       <main className="lg:ml-[240px] pt-[60px] lg:pt-0 min-h-screen">
         {children}
       </main>

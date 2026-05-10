@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Logo from '@/components/logo/Logo'
 import { createClient } from '@/lib/supabase/client'
 
+type CoreTeamMember = {
+  id: string
+  name: string
+  role: string
+  department: string
+}
+
 const NAV_ITEMS = [
   {
     label: 'Overview',
-    href: '/contribute/dashboard',
+    href: '/admin/dashboard',
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <rect x="1" y="1" width="6" height="6" rx="1" />
@@ -20,8 +27,29 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: 'Contributors',
+    href: '/admin/dashboard/contributors',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <circle cx="6" cy="5" r="3" />
+        <path d="M1 13c0-2.761 2.239-5 5-5s5 2.239 5 5" />
+        <path d="M11 3c1.657 0 3 1.343 3 3s-1.343 3-3 3" />
+        <path d="M13 13c0-1.657-.895-3.122-2.236-3.873" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Contributions',
+    href: '/admin/dashboard/contributions',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M8 1v14M1 8h14" />
+      </svg>
+    ),
+  },
+  {
     label: 'Tasks',
-    href: '/contribute/dashboard/tasks',
+    href: '/admin/dashboard/tasks',
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <rect x="1" y="1" width="14" height="14" rx="2" />
@@ -30,40 +58,50 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: 'Contributions',
-    href: '/contribute/dashboard?tab=contributions',
+    label: 'Core Team',
+    href: '/admin/dashboard/team',
+    founderOnly: true,
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M8 1v14M1 8h14" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Leaderboard',
-    href: '/contribute/dashboard/leaderboard',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M1 12h3V6H1zM6 12h3V3H6zM11 12h3V8h-3z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Profile',
-    href: '/contribute/dashboard?tab=profile',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-        <circle cx="8" cy="5" r="3" />
-        <path d="M1 14c0-3.314 3.134-6 7-6s7 2.686 7 6" />
+        <path d="M8 1l2 4h4l-3 3 1 4-4-2-4 2 1-4-3-3h4z" />
       </svg>
     ),
   },
 ]
 
-function SidebarContent() {
+function AdminSidebarContent() {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const [member, setMember] = useState<CoreTeamMember | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/contribute/signin')
+        return
+      }
+
+      const { data } = await supabase
+        .from('core_team')
+        .select('id, name, role, department')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single()
+
+      if (!data) {
+        router.push('/contribute/dashboard')
+        return
+      }
+
+      setMember(data)
+      setLoading(false)
+    }
+    load()
+  }, [router])
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -71,7 +109,10 @@ function SidebarContent() {
     router.push('/contribute/signin')
   }
 
-  const SidebarContent = () => (
+  const isFounder = member?.role === 'founder'
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.founderOnly || isFounder)
+
+  const SidebarInner = () => (
     <div className="flex flex-col h-full">
 
       {/* Logo */}
@@ -81,19 +122,54 @@ function SidebarContent() {
         </Link>
       </div>
 
+      {/* Admin label */}
+      <div className="px-6 py-3 border-b" style={{ borderColor: '#1C1730', background: 'rgba(109,40,217,0.06)' }}>
+        <div className="flex items-center gap-2">
+          <div
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#A78BFA',
+            }}
+          />
+          <span style={{
+            fontFamily: 'Switzer, sans-serif',
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color: '#A78BFA',
+          }}>
+            Admin Panel
+          </span>
+          {member && (
+            <span style={{
+              marginLeft: 'auto',
+              fontFamily: 'Switzer, sans-serif',
+              fontSize: 9,
+              fontWeight: 500,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#6B5FA0',
+              padding: '1px 6px',
+              borderRadius: 10,
+              background: 'rgba(109,40,217,0.1)',
+            }}>
+              {member.role}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         <ul className="flex flex-col gap-1 list-none">
-          {NAV_ITEMS.map((item) => {
-            const itemPath = item.href.split('?')[0]
-            const itemTab = new URLSearchParams(item.href.includes('?') ? item.href.split('?')[1] : '').get('tab')
-            const currentTab = searchParams.get('tab')
+          {visibleNavItems.map((item) => {
+            const isActive = item.href === '/admin/dashboard'
+              ? pathname === '/admin/dashboard'
+              : pathname.startsWith(item.href)
 
-            const isActive = itemTab
-              ? pathname === itemPath && currentTab === itemTab
-              : item.href === '/contribute/dashboard'
-              ? pathname === '/contribute/dashboard' && !currentTab
-              : pathname.startsWith(itemPath)
             return (
               <li key={item.label}>
                 <Link
@@ -132,6 +208,29 @@ function SidebarContent() {
 
       {/* Bottom actions */}
       <div className="px-3 py-4 border-t" style={{ borderColor: '#1C1730' }}>
+        {/* Switch to contributor */}
+        <Link
+          href="/contribute/dashboard"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full mb-1"
+          style={{
+            color: '#A78BFA',
+            textDecoration: 'none',
+            transition: 'background 0.2s',
+            background: 'rgba(109,40,217,0.06)',
+            border: '1px solid rgba(109,40,217,0.15)',
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(109,40,217,0.12)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(109,40,217,0.06)')}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M10 3L5 8l5 5" />
+          </svg>
+          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13 }}>
+            Contributor portal
+          </span>
+        </Link>
+
+        {/* Back to site */}
         <Link
           href="/"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full mb-1"
@@ -144,10 +243,12 @@ function SidebarContent() {
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M10 3L5 8l5 5" />
+            <path d="M8 1L1 8l7 7M1 8h14" />
           </svg>
           <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13 }}>Back to site</span>
         </Link>
+
+        {/* Sign out */}
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full"
@@ -179,6 +280,8 @@ function SidebarContent() {
     </div>
   )
 
+  if (loading) return null
+
   return (
     <>
       {/* Desktop sidebar */}
@@ -190,7 +293,7 @@ function SidebarContent() {
           borderRight: '1px solid #1C1730',
         }}
       >
-        <SidebarContent />
+        <SidebarInner />
       </aside>
 
       {/* Mobile top bar */}
@@ -231,7 +334,7 @@ function SidebarContent() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <SidebarContent />
+            <SidebarInner />
           </div>
         </div>
       )}
@@ -239,22 +342,10 @@ function SidebarContent() {
   )
 }
 
-export default function Sidebar() {
+export default function AdminSidebar() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0D0B14' }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          border: '2px solid #1C1730',
-          borderTop: '2px solid #6D28D9',
-          animation: 'spin 0.8s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    }>
-      <SidebarContent />
+    <Suspense fallback={null}>
+      <AdminSidebarContent />
     </Suspense>
   )
 }
