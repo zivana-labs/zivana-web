@@ -101,14 +101,14 @@ For a detailed explanation of every directory and file see [docs/01-architecture
 
 | Document | Contents |
 |---|---|
-| [docs/01-architecture.md](docs/01-architecture.md) | Tech stack, project structure, coding conventions |
-| [docs/02-authentication.md](docs/02-authentication.md) | Magic link flow, session management |
-| [docs/03-database.md](docs/03-database.md) | Tables, columns, relationships, RLS policies |
-| [docs/04-contributor-portal.md](docs/04-contributor-portal.md) | Portal features and user flows |
-| [docs/05-admin-panel.md](docs/05-admin-panel.md) | Admin features and permissions |
-| [docs/06-api-routes.md](docs/06-api-routes.md) | All API routes documented |
-| [docs/07-deployment.md](docs/07-deployment.md) | Environment variables and deploy workflow |
-| [docs/08-known-issues.md](docs/08-known-issues.md) | Deferred work and known limitations |
+| [Architecture](./docs/01-architecture.md) | Tech stack, project structure, coding conventions |
+| [Authentication](./docs/02-authentication.md) | Magic link flow, session management |
+| [Database](./docs/03-database.md) | Tables, columns, relationships, RLS policies |
+| [Contributor Portal](./docs/04-contributor-portal.md) | Portal features and user flows |
+| [Admin Panel](./docs/05-admin-panel.md) | Admin features and permissions |
+| [API Routes](./docs/06-api-routes.md) | All API routes documented |
+| [Deployment](./docs/07-deployment.md) | Environment variables and deploy workflow |
+| [Known Issues](./docs/08-known-issues.md) | Deferred work and known limitations |
 
 ---
 

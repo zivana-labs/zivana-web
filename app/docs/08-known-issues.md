@@ -6,6 +6,19 @@ This document covers known limitations, bugs that are deferred, planned features
 
 ## Known issues
 
+### Next.js 14 known CVEs — upgrade pending
+
+The project runs Next.js 14.2.29 which has 21 known vulnerabilities reported by GitHub Dependabot. Most affect image optimization, server components DoS, and cache poisoning edge cases. None directly compromise user data or authentication on a Vercel-hosted deployment since Supabase RLS handles data security independently.
+
+A planned migration to Next.js 15 is required. Key breaking changes to address during migration:
+- Async Request APIs — params and searchParams must be awaited in page components
+- Caching defaults changed — fetch is no longer cached by default
+- React 19 compatibility required
+
+Do not run `npm audit fix --force` as it will install Next.js 16 which has additional breaking changes beyond Next.js 15. Migrate to 15 first, test fully, then consider 16.
+
+---
+
 ### Telegram bot connection failing on some deployments
 
 **Status:** Intermittent — not fully resolved
