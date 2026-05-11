@@ -2,10 +2,21 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
+
+type Contributor = {
+  id: string
+  name: string
+  email: string
+  categories: string[]
+  contributor_type: string
+  team_name: string
+  total_points: number
+}
 
 type Task = {
   id: string
@@ -23,15 +34,6 @@ type Task = {
   created_at: string
 }
 
-type Contributor = {
-  id: string
-  name: string
-  email: string
-  categories: string[]
-  contributor_type: string
-  team_name: string
-  total_points: number
-}
 
 const CATEGORY_COLOURS: Record<string, string> = {
   technical:  '#7DD3FC',
@@ -65,7 +67,6 @@ function TasksContent() {
   const [filter, setFilter] = useState(searchParams.get('filter') ?? 'all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Task | null>(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionSuccess, setActionSuccess] = useState('')
   const [page, setPage] = useState(1)
@@ -78,16 +79,6 @@ function TasksContent() {
     complexity: 'medium',
   })
 
-  const [createMode, setCreateMode] = useState<'open' | 'direct'>('open')
-  const [createForm, setCreateForm] = useState({
-    title: '',
-    description: '',
-    category: 'technical',
-    complexity: 'medium',
-    assignedTo: '',
-    startDate: '',
-    deadlineDate: '',
-  })
 
   async function fetchTasks() {
     const supabase = createClient()
@@ -105,17 +96,16 @@ function TasksContent() {
     setLoading(false)
   }
 
-  async function fetchContributors() {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('contributors')
-      .select('id, name, email, categories, contributor_type, team_name, total_points')
-      .eq('status', 'active')
-      .order('name', { ascending: true })
-    if (data) setContributors(data)
-  }
-
   useEffect(() => {
+    async function fetchContributors() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('contributors')
+        .select('id, name, email, categories, contributor_type, team_name, total_points')
+        .eq('status', 'active')
+        .order('name', { ascending: true })
+      if (data) setContributors(data)
+    }
     fetchTasks()
     fetchContributors()
   }, [filter])
@@ -183,101 +173,6 @@ function TasksContent() {
     setActionLoading(false)
   }
 
-  async function handleCreate() {
-    if (!createForm.title.trim() || !createForm.description.trim()) return
-    if (createMode === 'direct' && (!createForm.assignedTo || !createForm.startDate || !createForm.deadlineDate)) return
-    setActionLoading(true)
-    const supabase = createClient()
-
-    const range = POINT_RANGES[createForm.category]?.[createForm.complexity]
-    const deadlineDays = DEADLINE_DAYS[createForm.complexity]
-
-    let insertData: any = {
-      title: createForm.title.trim(),
-      description: createForm.description,
-      category: createForm.category,
-      complexity: createForm.complexity,
-      point_range_min: range?.[0] ?? 50,
-      point_range_max: range?.[1] ?? 200,
-      deadline_days: deadlineDays,
-      status: 'open',
-    }
-
-    if (createMode === 'direct') {
-      const startDate = new Date(createForm.startDate)
-      const deadlineDate = new Date(createForm.deadlineDate)
-
-      insertData = {
-        ...insertData,
-        status: 'assigned',
-        assigned_to: createForm.assignedTo,
-        claimed_at: startDate.toISOString(),
-        deadline_at: deadlineDate.toISOString(),
-      }
-    }
-
-    const { error } = await supabase.from('tasks').insert(insertData)
-
-    if (!error) {
-      // Send email notification for direct assignment
-      if (createMode === 'direct') {
-        const assignedContributor = contributors.find(c => c.id === createForm.assignedTo)
-        if (assignedContributor) {
-          const contributorName = assignedContributor.contributor_type === 'team' && assignedContributor.team_name
-            ? assignedContributor.team_name
-            : assignedContributor.name
-
-          const startDateStr = new Date(createForm.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-          const deadlineDateStr = new Date(createForm.deadlineDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-
-          await fetch('/api/email/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: assignedContributor.email,
-              name: contributorName,
-              subject: `You have been assigned a task — ${createForm.title}`,
-              htmlContent: `
-                <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0D0B14;padding:40px 32px;border-radius:16px;">
-                  <h1 style="font-size:22px;font-weight:600;color:#E8E6F0;margin:0 0 12px;letter-spacing:-0.02em;">
-                    Task assigned to you
-                  </h1>
-                  <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 24px;">
-                    Hi ${contributorName}, the Zivana core team has assigned a task directly to you.
-                  </p>
-                  <div style="background:#13101E;border:1px solid #1C1730;border-radius:12px;padding:20px;margin:0 0 24px;">
-                    <p style="font-size:16px;font-weight:600;color:#E8E6F0;margin:0 0 12px;">${createForm.title}</p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Category: <span style="color:#A78BFA;text-transform:capitalize;">${createForm.category}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Complexity: <span style="color:#A78BFA;text-transform:capitalize;">${createForm.complexity}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Start date: <span style="color:#E8E6F0;">${startDateStr}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0;">Deadline: <span style="color:#E8E6F0;">${deadlineDateStr}</span></p>
-                  </div>
-                  <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 32px;">
-                    Log in to your dashboard to view the full task description and submit your work when complete.
-                  </p>
-                  <a href="https://zivana.network/contribute/dashboard"
-                    style="display:inline-block;background:linear-gradient(135deg,#A78BFA,#6D28D9,#4C1D95);color:white;padding:14px 28px;border-radius:9999px;font-size:14px;font-weight:500;text-decoration:none;">
-                    Go to your dashboard
-                  </a>
-                  <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
-                    <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Protocol — zivana.network</p>
-                  </div>
-                </div>
-              `,
-            }),
-          })
-        }
-      }
-
-      setActionSuccess(createMode === 'direct' ? 'Task created and assigned successfully' : 'Task created successfully')
-      setShowCreateForm(false)
-      setCreateForm({ title: '', description: '', category: 'technical', complexity: 'medium', assignedTo: '', startDate: '', deadlineDate: '' })
-      setCreateMode('open')
-      await fetchTasks()
-      setTimeout(() => setActionSuccess(''), 3000)
-    }
-    setActionLoading(false)
-  }
 
   async function handleUnassign(taskId: string) {
     setActionLoading(true)
@@ -338,8 +233,6 @@ function TasksContent() {
     completed: 'rgba(109,40,217,0.12)',
   }
 
-  const isCreateValid = createForm.title.trim() && createForm.description.trim() &&
-    (createMode === 'open' || (createForm.assignedTo && createForm.startDate && createForm.deadlineDate))
 
   return (
     <div className="min-h-screen bg-void pb-20">
@@ -360,13 +253,13 @@ function TasksContent() {
               Create, edit, and manage the contributor task board.
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateForm(true)}
+          <Link
+            href="/admin/dashboard/tasks/new"
             className="btn-primary"
-            style={{ fontSize: 13, alignSelf: 'flex-start' }}
+            style={{ fontSize: 13, alignSelf: 'flex-start', textDecoration: 'none' }}
           >
             + New task
-          </button>
+          </Link>
         </div>
 
         {actionSuccess && (
@@ -604,215 +497,6 @@ function TasksContent() {
         </div>
       )}
 
-      {/* Create modal */}
-      {showCreateForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-          style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateForm(false) }}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border overflow-hidden"
-            style={{ background: '#13101E', borderColor: '#1C1730', maxHeight: '90vh', overflowY: 'auto' }}
-          >
-            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730' }}>
-              <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0' }}>Create new task</p>
-              <button onClick={() => setShowCreateForm(false)} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
-            </div>
-
-            <div className="p-6 flex flex-col gap-4">
-              {/* Mode toggle */}
-              <div className="flex gap-2 p-1 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
-                {(['open', 'direct'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setCreateMode(mode)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 16px',
-                      borderRadius: 10,
-                      border: 'none',
-                      background: createMode === mode ? 'rgba(109,40,217,0.2)' : 'transparent',
-                      color: createMode === mode ? '#A78BFA' : '#8B7EC8',
-                      fontFamily: 'Switzer, sans-serif',
-                      fontSize: 12,
-                      fontWeight: createMode === mode ? 500 : 400,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {mode === 'open' ? 'Open task' : 'Direct assignment'}
-                  </button>
-                ))}
-              </div>
-
-              {createMode === 'open' && (
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.6 }}>
-                  Task will appear on the open board. Any active contributor can claim it.
-                </p>
-              )}
-              {createMode === 'direct' && (
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.6 }}>
-                  Task is assigned directly to a contributor. It will not appear on the open board. Use this for work already in progress or pre-agreed assignments.
-                </p>
-              )}
-
-              <div>
-                <label style={labelStyle}>Title</label>
-                <input
-                  type="text"
-                  value={createForm.title}
-                  onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                  placeholder="What needs to be built or done?"
-                  style={inputStyle}
-                  onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                  onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Description</label>
-                <RichTextEditor
-                  value={createForm.description}
-                  onChange={(html) => setCreateForm({ ...createForm, description: html })}
-                  placeholder="Describe the task in detail. Include what good looks like."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label style={labelStyle}>Category</label>
-                  <select
-                    value={createForm.category}
-                    onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
-                    style={inputStyle}
-                  >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>Complexity</label>
-                  <select
-                    value={createForm.complexity}
-                    onChange={(e) => setCreateForm({ ...createForm, complexity: e.target.value })}
-                    style={inputStyle}
-                  >
-                    {COMPLEXITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl" style={{ background: '#0F0D1A', border: '1px solid #1E1640' }}>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8' }}>
-                  Point range: <span style={{ color: '#A78BFA', fontWeight: 600 }}>
-                    {POINT_RANGES[createForm.category]?.[createForm.complexity]?.[0]}–{POINT_RANGES[createForm.category]?.[createForm.complexity]?.[1]} pts
-                  </span>
-                  {createMode === 'open' && <>{' '}· Deadline: <span style={{ color: '#A78BFA', fontWeight: 600 }}>{DEADLINE_DAYS[createForm.complexity]} days from claim</span></>}
-                </p>
-              </div>
-
-              {/* Direct assignment fields */}
-              {createMode === 'direct' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Assign to contributor</label>
-                    <select
-                      value={createForm.assignedTo}
-                      onChange={(e) => setCreateForm({ ...createForm, assignedTo: e.target.value })}
-                      style={inputStyle}
-                    >
-                      <option value="">Select a contributor...</option>
-                      {contributors.map((c) => {
-                        const displayName = c.contributor_type === 'team' && c.team_name ? c.team_name : c.name
-                        const cats = c.categories?.join(', ') ?? ''
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {displayName} — {c.email} · {cats} · {c.total_points} pts
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </div>
-
-                  {/* Selected contributor details */}
-                  {createForm.assignedTo && (() => {
-                    const c = contributors.find(x => x.id === createForm.assignedTo)
-                    if (!c) return null
-                    const displayName = c.contributor_type === 'team' && c.team_name ? c.team_name : c.name
-                    return (
-                      <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.15)' }}>
-                        <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 32, height: 32, background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(109,40,217,0.25)' }}>
-                          <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 13, color: '#A78BFA' }}>
-                            {displayName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 13, color: '#E8E6F0' }}>{displayName}</p>
-                          <div className="flex items-center gap-2 flex-wrap mt-1">
-                            {c.categories?.map(cat => {
-                              const catColor = CATEGORY_COLOURS[cat] ?? '#A78BFA'
-                              return (
-                                <span key={cat} style={{ padding: '1px 6px', borderRadius: 10, background: catColor + '15', color: catColor, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                  {cat}
-                                </span>
-                              )
-                            })}
-                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8' }}>{c.total_points} pts</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label style={labelStyle}>Start date</label>
-                      <input
-                        type="date"
-                        value={createForm.startDate}
-                        onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
-                        style={{ ...inputStyle, colorScheme: 'dark' }}
-                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Deadline date</label>
-                      <input
-                        type="date"
-                        value={createForm.deadlineDate}
-                        onChange={(e) => setCreateForm({ ...createForm, deadlineDate: e.target.value })}
-                        style={{ ...inputStyle, colorScheme: 'dark' }}
-                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="p-6 border-t flex gap-3" style={{ borderColor: '#1C1730' }}>
-              <button
-                onClick={handleCreate}
-                disabled={actionLoading || !isCreateValid}
-                className="btn-primary"
-                style={{ fontSize: 13, opacity: actionLoading || !isCreateValid ? 0.5 : 1 }}
-              >
-                {actionLoading ? 'Creating...' : createMode === 'direct' ? 'Assign task' : 'Create task'}
-              </button>
-              <button
-                onClick={() => { setShowCreateForm(false); setCreateMode('open') }}
-                className="btn-outline"
-                style={{ fontSize: 13 }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

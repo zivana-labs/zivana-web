@@ -1,3 +1,8 @@
 {
-  "/api/email/send/route": "app/api/email/send/route.js"
+  "/api/email/send/route": "app/api/email/send/route.js",
+  "/admin/dashboard/contributors/page": "app/admin/dashboard/contributors/page.js",
+  "/admin/dashboard/tasks/new/page": "app/admin/dashboard/tasks/new/page.js",
+  "/admin/dashboard/contributions/page": "app/admin/dashboard/contributions/page.js",
+  "/admin/dashboard/team/page": "app/admin/dashboard/team/page.js",
+  "/admin/dashboard/tasks/page": "app/admin/dashboard/tasks/page.js"
 }
