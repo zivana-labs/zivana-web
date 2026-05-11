@@ -3,6 +3,9 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import dynamic from 'next/dynamic'
+
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
 type Task = {
   id: string
@@ -15,7 +18,19 @@ type Task = {
   status: string
   deadline_days: number
   assigned_to: string | null
+  claimed_at: string | null
+  deadline_at: string | null
   created_at: string
+}
+
+type Contributor = {
+  id: string
+  name: string
+  email: string
+  categories: string[]
+  contributor_type: string
+  team_name: string
+  total_points: number
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -45,6 +60,7 @@ const POINT_RANGES: Record<string, Record<string, [number, number]>> = {
 function TasksContent() {
   const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<Task[]>([])
+  const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(searchParams.get('filter') ?? 'all')
   const [search, setSearch] = useState('')
@@ -62,11 +78,15 @@ function TasksContent() {
     complexity: 'medium',
   })
 
+  const [createMode, setCreateMode] = useState<'open' | 'direct'>('open')
   const [createForm, setCreateForm] = useState({
     title: '',
     description: '',
     category: 'technical',
     complexity: 'medium',
+    assignedTo: '',
+    startDate: '',
+    deadlineDate: '',
   })
 
   async function fetchTasks() {
@@ -85,8 +105,19 @@ function TasksContent() {
     setLoading(false)
   }
 
+  async function fetchContributors() {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('contributors')
+      .select('id, name, email, categories, contributor_type, team_name, total_points')
+      .eq('status', 'active')
+      .order('name', { ascending: true })
+    if (data) setContributors(data)
+  }
+
   useEffect(() => {
     fetchTasks()
+    fetchContributors()
   }, [filter])
 
   useEffect(() => {
@@ -154,28 +185,94 @@ function TasksContent() {
 
   async function handleCreate() {
     if (!createForm.title.trim() || !createForm.description.trim()) return
+    if (createMode === 'direct' && (!createForm.assignedTo || !createForm.startDate || !createForm.deadlineDate)) return
     setActionLoading(true)
     const supabase = createClient()
 
     const range = POINT_RANGES[createForm.category]?.[createForm.complexity]
+    const deadlineDays = DEADLINE_DAYS[createForm.complexity]
 
-    const { error } = await supabase
-      .from('tasks')
-      .insert({
-        title: createForm.title.trim(),
-        description: createForm.description.trim(),
-        category: createForm.category,
-        complexity: createForm.complexity,
-        point_range_min: range?.[0] ?? 50,
-        point_range_max: range?.[1] ?? 200,
-        deadline_days: DEADLINE_DAYS[createForm.complexity],
-        status: 'open',
-      })
+    let insertData: any = {
+      title: createForm.title.trim(),
+      description: createForm.description,
+      category: createForm.category,
+      complexity: createForm.complexity,
+      point_range_min: range?.[0] ?? 50,
+      point_range_max: range?.[1] ?? 200,
+      deadline_days: deadlineDays,
+      status: 'open',
+    }
+
+    if (createMode === 'direct') {
+      const startDate = new Date(createForm.startDate)
+      const deadlineDate = new Date(createForm.deadlineDate)
+
+      insertData = {
+        ...insertData,
+        status: 'assigned',
+        assigned_to: createForm.assignedTo,
+        claimed_at: startDate.toISOString(),
+        deadline_at: deadlineDate.toISOString(),
+      }
+    }
+
+    const { error } = await supabase.from('tasks').insert(insertData)
 
     if (!error) {
-      setActionSuccess('Task created successfully')
+      // Send email notification for direct assignment
+      if (createMode === 'direct') {
+        const assignedContributor = contributors.find(c => c.id === createForm.assignedTo)
+        if (assignedContributor) {
+          const contributorName = assignedContributor.contributor_type === 'team' && assignedContributor.team_name
+            ? assignedContributor.team_name
+            : assignedContributor.name
+
+          const startDateStr = new Date(createForm.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          const deadlineDateStr = new Date(createForm.deadlineDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+          await fetch('/api/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: assignedContributor.email,
+              name: contributorName,
+              subject: `You have been assigned a task — ${createForm.title}`,
+              htmlContent: `
+                <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0D0B14;padding:40px 32px;border-radius:16px;">
+                  <h1 style="font-size:22px;font-weight:600;color:#E8E6F0;margin:0 0 12px;letter-spacing:-0.02em;">
+                    Task assigned to you
+                  </h1>
+                  <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 24px;">
+                    Hi ${contributorName}, the Zivana core team has assigned a task directly to you.
+                  </p>
+                  <div style="background:#13101E;border:1px solid #1C1730;border-radius:12px;padding:20px;margin:0 0 24px;">
+                    <p style="font-size:16px;font-weight:600;color:#E8E6F0;margin:0 0 12px;">${createForm.title}</p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Category: <span style="color:#A78BFA;text-transform:capitalize;">${createForm.category}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Complexity: <span style="color:#A78BFA;text-transform:capitalize;">${createForm.complexity}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Start date: <span style="color:#E8E6F0;">${startDateStr}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0;">Deadline: <span style="color:#E8E6F0;">${deadlineDateStr}</span></p>
+                  </div>
+                  <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 32px;">
+                    Log in to your dashboard to view the full task description and submit your work when complete.
+                  </p>
+                  <a href="https://zivana.network/contribute/dashboard"
+                    style="display:inline-block;background:linear-gradient(135deg,#A78BFA,#6D28D9,#4C1D95);color:white;padding:14px 28px;border-radius:9999px;font-size:14px;font-weight:500;text-decoration:none;">
+                    Go to your dashboard
+                  </a>
+                  <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
+                    <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Protocol — zivana.network</p>
+                  </div>
+                </div>
+              `,
+            }),
+          })
+        }
+      }
+
+      setActionSuccess(createMode === 'direct' ? 'Task created and assigned successfully' : 'Task created successfully')
       setShowCreateForm(false)
-      setCreateForm({ title: '', description: '', category: 'technical', complexity: 'medium' })
+      setCreateForm({ title: '', description: '', category: 'technical', complexity: 'medium', assignedTo: '', startDate: '', deadlineDate: '' })
+      setCreateMode('open')
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
     }
@@ -241,6 +338,9 @@ function TasksContent() {
     completed: 'rgba(109,40,217,0.12)',
   }
 
+  const isCreateValid = createForm.title.trim() && createForm.description.trim() &&
+    (createMode === 'open' || (createForm.assignedTo && createForm.startDate && createForm.deadlineDate))
+
   return (
     <div className="min-h-screen bg-void pb-20">
       {/* Sticky header and filters */}
@@ -248,74 +348,71 @@ function TasksContent() {
         className="sticky top-0 z-30 px-8 lg:px-12 pt-8 pb-4"
         style={{ background: '#0D0B14', borderBottom: '1px solid #1C1730' }}
       >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-        <div>
-          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#8B7EC8' }}>
-            Admin Panel
-          </span>
-          <h1 className="mt-2 mb-3" style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 'clamp(24px,4vw,40px)', letterSpacing: '-0.025em', color: '#E8E6F0', lineHeight: 1.1 }}>
-            Tasks
-          </h1>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#7B6FA8', lineHeight: 1.75 }}>
-            Create, edit, and manage the contributor task board.
-          </p>
+        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+          <div>
+            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#8B7EC8' }}>
+              Admin Panel
+            </span>
+            <h1 className="mt-2 mb-3" style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 'clamp(24px,4vw,40px)', letterSpacing: '-0.025em', color: '#E8E6F0', lineHeight: 1.1 }}>
+              Tasks
+            </h1>
+            <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#7B6FA8', lineHeight: 1.75 }}>
+              Create, edit, and manage the contributor task board.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="btn-primary"
+            style={{ fontSize: 13, alignSelf: 'flex-start' }}
+          >
+            + New task
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="btn-primary"
-          style={{ fontSize: 13, alignSelf: 'flex-start' }}
-        >
-          + New task
-        </button>
-      </div>
 
-      {/* Success message */}
-      {actionSuccess && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border mb-6" style={{ background: 'rgba(15,118,110,0.1)', borderColor: 'rgba(15,118,110,0.25)' }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M2 8l4 4L14 3" />
-          </svg>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#5EEAD4' }}>{actionSuccess}</p>
-        </div>
-      )}
+        {actionSuccess && (
+          <div className="flex items-center gap-3 p-4 rounded-xl border mb-4" style={{ background: 'rgba(15,118,110,0.1)', borderColor: 'rgba(15,118,110,0.25)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M2 8l4 4L14 3" />
+            </svg>
+            <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#5EEAD4' }}>{actionSuccess}</p>
+          </div>
+        )}
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search tasks..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ ...inputStyle, background: '#13101E', maxWidth: 400 }}
-          onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-          onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
-        />
-        <div className="flex flex-wrap gap-2">
-          {STATUS_OPTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              style={{
-                padding: '5px 14px',
-                borderRadius: 20,
-                border: `1px solid ${filter === s ? '#6D28D9' : '#1C1730'}`,
-                background: filter === s ? 'rgba(109,40,217,0.15)' : 'transparent',
-                color: filter === s ? '#A78BFA' : '#8B7EC8',
-                fontFamily: 'Switzer, sans-serif',
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: '0.06em',
-                textTransform: 'capitalize',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ ...inputStyle, background: '#13101E', maxWidth: 400 }}
+            onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+            onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+          />
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                style={{
+                  padding: '5px 14px',
+                  borderRadius: 20,
+                  border: `1px solid ${filter === s ? '#6D28D9' : '#1C1730'}`,
+                  background: filter === s ? 'rgba(109,40,217,0.15)' : 'transparent',
+                  color: filter === s ? '#A78BFA' : '#8B7EC8',
+                  fontFamily: 'Switzer, sans-serif',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  letterSpacing: '0.06em',
+                  textTransform: 'capitalize',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       </div>
 
       <div className="px-8 lg:px-12 pt-4">
@@ -325,91 +422,79 @@ function TasksContent() {
           </span>
         </div>
 
-      {/* Tasks list */}
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="rounded-2xl border" style={{ background: '#13101E', borderColor: '#1C1730', height: 80, opacity: 0.5 }} />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 rounded-2xl border" style={{ background: '#13101E', borderColor: '#1C1730' }}>
-          <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0', marginBottom: 6 }}>No tasks found</p>
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#8B7EC8' }}>Try adjusting your filters or create a new task</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {paginated.map((task) => {
-            const catColor = CATEGORY_COLOURS[task.category] ?? '#A78BFA'
-            return (
-              <div
-                key={task.id}
-                className="flex items-center gap-4 p-5 rounded-2xl border cursor-pointer"
-                style={{
-                  background: selected?.id === task.id ? 'rgba(109,40,217,0.06)' : '#13101E',
-                  borderColor: selected?.id === task.id ? 'rgba(109,40,217,0.3)' : '#1C1730',
-                  transition: 'all 0.2s',
-                }}
-                onClick={() => setSelected(selected?.id === task.id ? null : task)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0' }}>
-                      {task.title}
-                    </span>
-                    <span style={{ padding: '1px 8px', borderRadius: 20, background: catColor + '15', color: catColor, border: `1px solid ${catColor}25`, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                      {task.category}
-                    </span>
-                    <span style={{ padding: '1px 8px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                      {task.complexity}
-                    </span>
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border" style={{ background: '#13101E', borderColor: '#1C1730', height: 80, opacity: 0.5 }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 rounded-2xl border" style={{ background: '#13101E', borderColor: '#1C1730' }}>
+            <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0', marginBottom: 6 }}>No tasks found</p>
+            <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#8B7EC8' }}>Try adjusting your filters or create a new task</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {paginated.map((task) => {
+              const catColor = CATEGORY_COLOURS[task.category] ?? '#A78BFA'
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-4 p-5 rounded-2xl border cursor-pointer"
+                  style={{
+                    background: selected?.id === task.id ? 'rgba(109,40,217,0.06)' : '#13101E',
+                    borderColor: selected?.id === task.id ? 'rgba(109,40,217,0.3)' : '#1C1730',
+                    transition: 'all 0.2s',
+                  }}
+                  onClick={() => setSelected(selected?.id === task.id ? null : task)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0' }}>
+                        {task.title}
+                      </span>
+                      <span style={{ padding: '1px 8px', borderRadius: 20, background: catColor + '15', color: catColor, border: `1px solid ${catColor}25`, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        {task.category}
+                      </span>
+                      <span style={{ padding: '1px 8px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        {task.complexity}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
+                        {task.point_range_min}–{task.point_range_max} pts
+                      </span>
+                      <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
+                        {task.deadline_days} day deadline
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
-                      {task.point_range_min}–{task.point_range_max} pts
-                    </span>
-                    <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
-                      {task.deadline_days} day deadline
-                    </span>
-                  </div>
+
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: 20,
+                    background: statusBg[task.status] ?? 'rgba(255,255,255,0.05)',
+                    color: statusColor[task.status] ?? '#8B7EC8',
+                    fontFamily: 'Switzer, sans-serif',
+                    fontSize: 9,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    flexShrink: 0,
+                  }}>
+                    {task.status}
+                  </span>
                 </div>
+              )
+            })}
+          </div>
+        )}
 
-                <span style={{
-                  padding: '3px 10px',
-                  borderRadius: 20,
-                  background: statusBg[task.status] ?? 'rgba(255,255,255,0.05)',
-                  color: statusColor[task.status] ?? '#8B7EC8',
-                  fontFamily: 'Switzer, sans-serif',
-                  fontSize: 9,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  flexShrink: 0,
-                }}>
-                  {task.status}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-6 pt-4" style={{ borderTop: '1px solid #1C1730' }}>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              style={{
-                padding: '8px 18px',
-                borderRadius: 9999,
-                border: '1px solid #1C1730',
-                background: 'transparent',
-                color: page === 1 ? '#2D2450' : '#8B7EC8',
-                fontFamily: 'Switzer, sans-serif',
-                fontSize: 13,
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-              }}
+              style={{ padding: '8px 18px', borderRadius: 9999, border: '1px solid #1C1730', background: 'transparent', color: page === 1 ? '#2D2450' : '#8B7EC8', fontFamily: 'Switzer, sans-serif', fontSize: 13, cursor: page === 1 ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
             >
               Previous
             </button>
@@ -419,17 +504,7 @@ function TasksContent() {
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              style={{
-                padding: '8px 18px',
-                borderRadius: 9999,
-                border: '1px solid #1C1730',
-                background: 'transparent',
-                color: page === totalPages ? '#2D2450' : '#8B7EC8',
-                fontFamily: 'Switzer, sans-serif',
-                fontSize: 13,
-                cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-              }}
+              style={{ padding: '8px 18px', borderRadius: 9999, border: '1px solid #1C1730', background: 'transparent', color: page === totalPages ? '#2D2450' : '#8B7EC8', fontFamily: 'Switzer, sans-serif', fontSize: 13, cursor: page === totalPages ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
             >
               Next
             </button>
@@ -467,13 +542,9 @@ function TasksContent() {
               </div>
               <div>
                 <label style={labelStyle}>Description</label>
-                <textarea
+                <RichTextEditor
                   value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  rows={4}
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                  onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                  onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  onChange={(html) => setEditForm({ ...editForm, description: html })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -509,29 +580,14 @@ function TasksContent() {
             </div>
 
             <div className="p-6 border-t flex flex-wrap gap-3" style={{ borderColor: '#1C1730' }}>
-              <button
-                onClick={handleUpdate}
-                disabled={actionLoading}
-                className="btn-primary"
-                style={{ fontSize: 13, opacity: actionLoading ? 0.7 : 1 }}
-              >
+              <button onClick={handleUpdate} disabled={actionLoading} className="btn-primary" style={{ fontSize: 13, opacity: actionLoading ? 0.7 : 1 }}>
                 {actionLoading ? 'Saving...' : 'Save changes'}
               </button>
               {selected.status === 'assigned' && (
                 <button
                   onClick={() => handleUnassign(selected.id)}
                   disabled={actionLoading}
-                  style={{
-                    fontSize: 13,
-                    padding: '10px 20px',
-                    borderRadius: 9999,
-                    border: '1px solid rgba(234,179,8,0.3)',
-                    background: 'rgba(234,179,8,0.08)',
-                    color: '#FCD34D',
-                    fontFamily: 'Switzer, sans-serif',
-                    cursor: 'pointer',
-                    opacity: actionLoading ? 0.7 : 1,
-                  }}
+                  style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.08)', color: '#FCD34D', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1 }}
                 >
                   Unassign task
                 </button>
@@ -539,18 +595,7 @@ function TasksContent() {
               <button
                 onClick={() => handleDelete(selected.id)}
                 disabled={actionLoading}
-                style={{
-                  fontSize: 13,
-                  padding: '10px 20px',
-                  borderRadius: 9999,
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  background: 'rgba(239,68,68,0.08)',
-                  color: '#FCA5A5',
-                  fontFamily: 'Switzer, sans-serif',
-                  cursor: 'pointer',
-                  opacity: actionLoading ? 0.7 : 1,
-                  marginLeft: 'auto',
-                }}
+                style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1, marginLeft: 'auto' }}
               >
                 {actionLoading ? 'Deleting...' : 'Delete task'}
               </button>
@@ -576,6 +621,43 @@ function TasksContent() {
             </div>
 
             <div className="p-6 flex flex-col gap-4">
+              {/* Mode toggle */}
+              <div className="flex gap-2 p-1 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
+                {(['open', 'direct'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setCreateMode(mode)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 16px',
+                      borderRadius: 10,
+                      border: 'none',
+                      background: createMode === mode ? 'rgba(109,40,217,0.2)' : 'transparent',
+                      color: createMode === mode ? '#A78BFA' : '#8B7EC8',
+                      fontFamily: 'Switzer, sans-serif',
+                      fontSize: 12,
+                      fontWeight: createMode === mode ? 500 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {mode === 'open' ? 'Open task' : 'Direct assignment'}
+                  </button>
+                ))}
+              </div>
+
+              {createMode === 'open' && (
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.6 }}>
+                  Task will appear on the open board. Any active contributor can claim it.
+                </p>
+              )}
+              {createMode === 'direct' && (
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.6 }}>
+                  Task is assigned directly to a contributor. It will not appear on the open board. Use this for work already in progress or pre-agreed assignments.
+                </p>
+              )}
+
               <div>
                 <label style={labelStyle}>Title</label>
                 <input
@@ -588,18 +670,16 @@ function TasksContent() {
                   onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
                 />
               </div>
+
               <div>
                 <label style={labelStyle}>Description</label>
-                <textarea
+                <RichTextEditor
                   value={createForm.description}
-                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  rows={4}
+                  onChange={(html) => setCreateForm({ ...createForm, description: html })}
                   placeholder="Describe the task in detail. Include what good looks like."
-                  style={{ ...inputStyle, resize: 'vertical' }}
-                  onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
-                  onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label style={labelStyle}>Category</label>
@@ -622,27 +702,108 @@ function TasksContent() {
                   </select>
                 </div>
               </div>
+
               <div className="p-3 rounded-xl" style={{ background: '#0F0D1A', border: '1px solid #1E1640' }}>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8' }}>
                   Point range: <span style={{ color: '#A78BFA', fontWeight: 600 }}>
                     {POINT_RANGES[createForm.category]?.[createForm.complexity]?.[0]}–{POINT_RANGES[createForm.category]?.[createForm.complexity]?.[1]} pts
                   </span>
-                  {' '}· Deadline: <span style={{ color: '#A78BFA', fontWeight: 600 }}>{DEADLINE_DAYS[createForm.complexity]} days</span>
+                  {createMode === 'open' && <>{' '}· Deadline: <span style={{ color: '#A78BFA', fontWeight: 600 }}>{DEADLINE_DAYS[createForm.complexity]} days from claim</span></>}
                 </p>
               </div>
+
+              {/* Direct assignment fields */}
+              {createMode === 'direct' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Assign to contributor</label>
+                    <select
+                      value={createForm.assignedTo}
+                      onChange={(e) => setCreateForm({ ...createForm, assignedTo: e.target.value })}
+                      style={inputStyle}
+                    >
+                      <option value="">Select a contributor...</option>
+                      {contributors.map((c) => {
+                        const displayName = c.contributor_type === 'team' && c.team_name ? c.team_name : c.name
+                        const cats = c.categories?.join(', ') ?? ''
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {displayName} — {c.email} · {cats} · {c.total_points} pts
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Selected contributor details */}
+                  {createForm.assignedTo && (() => {
+                    const c = contributors.find(x => x.id === createForm.assignedTo)
+                    if (!c) return null
+                    const displayName = c.contributor_type === 'team' && c.team_name ? c.team_name : c.name
+                    return (
+                      <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.15)' }}>
+                        <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 32, height: 32, background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(109,40,217,0.25)' }}>
+                          <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 13, color: '#A78BFA' }}>
+                            {displayName.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 13, color: '#E8E6F0' }}>{displayName}</p>
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
+                            {c.categories?.map(cat => {
+                              const catColor = CATEGORY_COLOURS[cat] ?? '#A78BFA'
+                              return (
+                                <span key={cat} style={{ padding: '1px 6px', borderRadius: 10, background: catColor + '15', color: catColor, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                  {cat}
+                                </span>
+                              )
+                            })}
+                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8' }}>{c.total_points} pts</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label style={labelStyle}>Start date</label>
+                      <input
+                        type="date"
+                        value={createForm.startDate}
+                        onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
+                        style={{ ...inputStyle, colorScheme: 'dark' }}
+                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Deadline date</label>
+                      <input
+                        type="date"
+                        value={createForm.deadlineDate}
+                        onChange={(e) => setCreateForm({ ...createForm, deadlineDate: e.target.value })}
+                        style={{ ...inputStyle, colorScheme: 'dark' }}
+                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="p-6 border-t flex gap-3" style={{ borderColor: '#1C1730' }}>
               <button
                 onClick={handleCreate}
-                disabled={actionLoading || !createForm.title.trim() || !createForm.description.trim()}
+                disabled={actionLoading || !isCreateValid}
                 className="btn-primary"
-                style={{ fontSize: 13, opacity: actionLoading || !createForm.title.trim() || !createForm.description.trim() ? 0.5 : 1 }}
+                style={{ fontSize: 13, opacity: actionLoading || !isCreateValid ? 0.5 : 1 }}
               >
-                {actionLoading ? 'Creating...' : 'Create task'}
+                {actionLoading ? 'Creating...' : createMode === 'direct' ? 'Assign task' : 'Create task'}
               </button>
               <button
-                onClick={() => setShowCreateForm(false)}
+                onClick={() => { setShowCreateForm(false); setCreateMode('open') }}
                 className="btn-outline"
                 style={{ fontSize: 13 }}
               >

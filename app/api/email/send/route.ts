@@ -7,13 +7,14 @@ export async function POST(request: NextRequest) {
 
     console.log('Email send attempt to:', to)
     console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
-    console.log('BREVO_API_KEY_REST prefix:', process.env.BREVO_API_KEY_REST?.slice(0, 10))
+    console.log('Email send attempt to:', to)
+    console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': process.env.BREVO_API_KEY_REST_REST!,
+        'api-key': process.env.BREVO_API_KEY_REST!,
       },
       body: JSON.stringify({
         sender: { name: 'Zivana Protocol', email: 'hello@zivana.network' },
