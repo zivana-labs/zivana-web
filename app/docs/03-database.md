@@ -251,103 +251,63 @@ Stores extended profile data linked to auth users. This table was created for fu
 
 ## Row Level Security policies
 
-All tables have RLS enabled. Every query from the application is subject to these policies.
+All tables have RLS enabled. Every query is subject to access control at the database level regardless of application logic.
 
 ### contributors
 
-| Policy | Command | Rule |
-|---|---|---|
-| Anyone can register as contributor | INSERT | Always allowed — `with_check: true` |
-| Contributors can view own record | SELECT | `user_id = auth.uid()` OR email matches auth user email |
-| Contributors can update own record | UPDATE | `user_id = auth.uid()` OR email matches auth user email |
-| Public can view active contributors | SELECT | `status = 'active'` |
-| Core team can view all contributors | SELECT | `is_core_team_member()` |
-| Core team can update all contributors | UPDATE | `is_core_team_member()` |
+- Registration is open — anyone can create a contributor record
+- A contributor can only read and update their own record
+- Active contributors are visible on public-facing views
+- Core team members have elevated read and write access across all records
 
 ### contributions
 
-| Policy | Command | Rule |
-|---|---|---|
-| Contributors can submit contributions | INSERT | `contributor_id = get_contributor_id()` AND contributor status is active |
-| Contributors can view own contributions | SELECT | `contributor_id = get_contributor_id()` |
-| Contributors can update own submitted contributions | UPDATE | contributor_id matches auth user AND `status = 'submitted'` |
-| Public can view verified contributions | SELECT | `status = 'verified'` |
-| Core team can view all contributions | SELECT | `is_core_team_member()` |
-| Core team can verify contributions | UPDATE | core_team.user_id matches auth.uid() AND is_active |
+- Only active contributors can submit contributions
+- A contributor can only read and update their own submissions, and only while the submission is in the initial state
+- Verified contributions are visible publicly
+- Core team members can read all contributions and perform verification actions
 
 ### tasks
 
-| Policy | Command | Rule |
-|---|---|---|
-| Public can view tasks | SELECT | `status` in `open`, `assigned`, `completed` |
-| Core team can insert tasks | INSERT | core_team.user_id matches auth.uid() AND is_active |
-| Core team can update tasks | UPDATE | `is_core_team_member()` |
-| Contributors can claim open tasks | UPDATE | status is `open` AND contributor exists, OR status is `assigned` AND `assigned_to = get_contributor_id()` |
+- All tasks are publicly readable
+- Only active core team members can create tasks
+- Core team members can update any task
+- Contributors can update a task only to claim it or manage their own active claim
 
 ### core_team
 
-| Policy | Command | Rule |
-|---|---|---|
-| Core team select own record | SELECT | `user_id = auth.uid()` |
-| Founders can add core team members | INSERT | `is_core_team_member()` AND role is `founder` |
-| Founders can update core team | UPDATE | `is_core_team_member()` AND role is `founder` |
+- A core team member can only read their own record
+- Only founders can add or update core team records
 
 ### profiles
 
-| Policy | Command | Rule |
-|---|---|---|
-| Users can view own profile | SELECT | `id = auth.uid()` |
-| Users can insert own profile | INSERT | `id = auth.uid()` |
-| Users can update own profile | UPDATE | `id = auth.uid()` |
+- Users can only read, create, and update their own profile record
 
 ---
 
 ## Database functions
 
-All functions use `SECURITY DEFINER` which means they execute with the privileges of the function owner, bypassing RLS. This is intentional — it allows the functions to query tables that would otherwise cause infinite recursion when used inside RLS policies.
+The following functions are defined in the database and used in RLS policies or triggered automatically by data changes.
 
 ### `get_contributor_id()`
 
-Returns the `contributors.id` for the currently authenticated user. Used in RLS policies to avoid complex subqueries.
-
-```sql
-SELECT id FROM contributors
-WHERE contributors.user_id = auth.uid()
-AND contributors.status = 'active'
-LIMIT 1
-```
+Returns the `contributors.id` for the currently authenticated user by matching `auth.uid()` against `contributors.user_id`. Used inside RLS policies so contributors can access their own records without the policy querying the same table recursively. Defined as `SECURITY DEFINER` so it runs with elevated privileges.
 
 ### `is_core_team_member()`
 
-Returns `true` if the currently authenticated user exists in the `core_team` table with `is_active = true`.
+Returns `true` if the currently authenticated user has an active record in the `core_team` table. Used in RLS policies across `contributors`, `contributions`, and `tasks` to grant elevated access to core team members. Defined as `SECURITY DEFINER` to avoid infinite recursion on the `core_team` table's own policies.
 
-```sql
-SELECT EXISTS (
-  SELECT 1 FROM core_team
-  WHERE core_team.user_id = auth.uid()
-  AND core_team.is_active = TRUE
-)
-```
+### `update_contributor_points()`
 
-### `is_core_team_member_by_uid(user_uid uuid)`
+A trigger function that runs after any insert, update, or delete on the `contributions` table. When a contribution is verified it adds `final_points` to the contributor's `total_points` and increments `verified_contributions`. When a verified contribution is rejected it reverses the points. When `final_points` changes on an already verified contribution it adjusts only the difference. Never update `total_points` or `verified_contributions` directly — always let this trigger maintain them.
 
-Same as `is_core_team_member()` but accepts a specific UUID instead of using `auth.uid()`. Used for server-side checks.
+### `apply_consistency_multiplier()`
 
-### `update_contributor_points()` — trigger function
+A trigger function that runs after a contribution is verified. Checks whether the contributor has reached 5 verified contributions and, if so, sets `multiplier` to `1.2` on all future contributions. Also recalculates `final_points` after the multiplier changes.
 
-Fires after every UPDATE on the `contributions` table. Handles three cases:
+### `rls_auto_enable()`
 
-1. When a contribution is marked `verified` — adds `final_points` to `contributors.total_points` and increments `verified_contributions`
-2. When a verified contribution is subsequently marked `rejected` — reverses the points
-3. When `final_points` is updated on an already verified contribution — adjusts the difference
-
-### `apply_consistency_multiplier()` — trigger function
-
-Fires after every UPDATE on the `contributors` table. When `verified_contributions` transitions from 4 to 5, retroactively applies a 1.2x consistency multiplier to all of that contributor's verified contributions and recalculates their total points from scratch.
-
-### `rls_auto_enable()` — event trigger function
-
-Automatically enables RLS on every new table created in the `public` schema. This is a safety net that ensures no table is accidentally created without RLS.
+An event trigger that fires whenever a new table is created in the public schema. Automatically enables Row Level Security on the new table. This means any table added to the database has RLS on from the moment it is created — no manual `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` step is needed.
 
 ---
 

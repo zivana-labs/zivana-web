@@ -190,7 +190,7 @@ The following URLs must be listed under **Authentication** then **URL Configurat
 
 https://zivana.network/**
 
-https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app/**
+https://your-project.vercel.app/**
 
 http://localhost:3000/**
 

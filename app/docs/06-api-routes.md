@@ -231,28 +231,17 @@ When a user sends a message to the Zivana bot Telegram makes a POST request to t
 
 ### Registering the webhook
 
-Run this in a browser after deployment replacing the placeholders:
-
-https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url=https://zivana.network/api/telegram/webhook
-
-Telegram responds with:
-```json
-{ "ok": true, "result": true, "description": "Webhook was set" }
-```
-
-To verify the webhook is set correctly:
-
-https://api.telegram.org/bot{BOT_TOKEN}/getWebhookInfo
+Use the Telegram `setWebhook` API endpoint with your bot token and the production webhook URL. After setting it, use `getWebhookInfo` to confirm it was registered correctly.
 
 ### `/start` command — link Telegram account
 
 **Triggered when:** A contributor clicks the Connect Telegram button in their dashboard profile tab. The button links to `https://t.me/ZivanaProtocolBot?start={contributor_id}`. Telegram opens the bot and automatically sends `/start {contributor_id}`.
 
 **Process:**
-1. Extract `contributor_id` from the message text
-2. Query `contributors` table for a record with that ID using the service role key
-3. If found update `telegram_chat_id = chat_id` and `notification_telegram = true`
-4. Send confirmation message to the user
+1. Extract the contributor ID from the message text
+2. Look up the contributor record
+3. If found, link the Telegram account and enable Telegram notifications
+4. Send a confirmation message to the user
 
 **Success response to user:**
 
@@ -266,9 +255,9 @@ You can disconnect at any time from your dashboard profile settings.
 **Triggered when:** User sends `/stop` to the bot directly.
 
 **Process:**
-1. Find the contributor record where `telegram_chat_id` matches the sender's chat ID
-2. Set `telegram_chat_id = null` and `notification_telegram = false`
-3. Send disconnection confirmation message
+1. Identify the contributor linked to this Telegram chat
+2. Remove the Telegram link and disable Telegram notifications
+3. Send a disconnection confirmation message
 
 **Success response to user:**
 
@@ -302,23 +291,6 @@ Internal errors are logged to the console but never returned to Telegram.
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key — required to bypass RLS when updating contributor records |
 | `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
 
-### Database operation
-
-The webhook uses direct Supabase REST API calls with both the `apikey` and `Authorization` headers set to the service role key. This is required because the `@supabase/supabase-js` client initialised at module level in a serverless function can fail to load environment variables correctly before the request handler runs.
-
-```typescript
-const fetchResp = await fetch(
-  `${supabaseUrl}/rest/v1/contributors?id=eq.${contributorId}&select=id,email`,
-  {
-    method: 'GET',
-    headers: {
-      'apikey': serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json',
-    },
-  }
-)
-```
 
 ### Known limitations
 

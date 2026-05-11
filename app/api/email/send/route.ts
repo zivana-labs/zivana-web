@@ -2,11 +2,19 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get('origin')
+    const allowedOrigins = [
+      'https://zivana.network',
+      'http://localhost:3000',
+      'https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app'
+    ]
+    if (!origin || !allowedOrigins.includes(origin)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { to, name, subject, htmlContent } = body
 
-    console.log('Email send attempt to:', to)
-    console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
     console.log('Email send attempt to:', to)
     console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
 
