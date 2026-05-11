@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         'api-key': process.env.BREVO_API_KEY_REST!,
       },
       body: JSON.stringify({
-        sender: { name: 'Zivana Protocol', email: 'hello@zivana.network' },
+        sender: { name: 'Zivana Network', email: 'hello@zivana.network' },
         to: [{ email: to, name }],
         subject,
         htmlContent,
