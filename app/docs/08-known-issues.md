@@ -6,24 +6,16 @@ This document covers known limitations, bugs that are deferred, planned features
 
 ## Known issues
 
-### Server-side middleware auth gates incompatible with implicit flow
+### Server-side middleware auth gate incompatible with implicit flow
 
-**Status:** Architectural constraint — intentional design decision
-**Affected:** `middleware.ts`, admin panel, contributor portal
+**Status:** Architectural constraint — not fixable without auth flow migration
+**Affected:** `/admin/dashboard/**` routes
 
-The project uses Supabase implicit flow for magic link authentication. In implicit flow the session token is delivered in the URL fragment (`#access_token=...`) and stored in `localStorage` by the Supabase client. It is never written to cookies by design.
+Next.js middleware runs before any client-side code executes. Auth-based redirects in middleware require the session to exist in cookies. Zivana uses the implicit flow where the session token is delivered in the URL fragment and stored in localStorage — not in cookies. This means middleware cannot read the session and any cookie-based auth check in middleware always fails, causing redirect loops and `refresh_token_not_found` errors.
 
-This means the Next.js middleware (`middleware.ts`) cannot read or verify the session on the server side. `updateSession()` from `@supabase/ssr` can only sync a session that already exists in cookies — it cannot establish or verify a localStorage-only session. Any attempt to add auth-based redirects in middleware will redirect all authenticated users to the sign-in page because the server sees no session cookie.
+**Current protection:** The `AdminAuthGate` component wraps the entire admin layout and blocks all page content from rendering until the auth check confirms the user is an active core team member. A spinner shows during the check. Unauthenticated users are redirected before any admin content is visible.
 
-**Consequence:** The admin panel and contributor portal are protected entirely client-side:
-- `AdminSidebar` checks `core_team` membership on mount and redirects non-members immediately
-- Contributor dashboard checks auth via `supabase.auth.getUser()` on mount and redirects unauthenticated users
-
-This is safe because Supabase Row Level Security enforces data access at the database level regardless of application-layer auth checks. An unauthenticated request using the anon key cannot read or write protected data even if it bypasses the client-side redirect.
-
-**Why not switch to PKCE flow:** PKCE flow stores a code verifier in the browser that made the magic link request. If the user opens the magic link on a different browser or device — common for mobile contributors who request the link on desktop — the verification fails with an invalid link error. This is a critical UX regression for the Nigerian contributor base.
-
-**Future fix:** A migration to PKCE flow would allow server-side middleware auth gates and is the correct long-term path. It requires updating the Supabase client configuration, the callback page, and communicating the cross-browser limitation to contributors before rollout.
+**Future fix:** Migrating to PKCE flow would allow cookie-based sessions and proper middleware auth gates. However PKCE breaks cross-browser magic links — a link requested on desktop cannot be opened on mobile. This tradeoff must be evaluated against the contributor experience before migrating.
 
 ---
 
