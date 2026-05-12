@@ -1,7 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth check — only authenticated users can send email
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Origin check
     const origin = request.headers.get('origin')
     const allowedOrigins = [
       'https://zivana.network',
@@ -15,8 +24,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { to, name, subject, htmlContent } = body
 
-    console.log('Email send attempt to:', to)
-    console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
+    // Basic input validation
+    if (!to || !name || !subject || !htmlContent) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Only allow sending to valid email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(to)) {
+      return NextResponse.json({ error: 'Invalid recipient email' }, { status: 400 })
+    }
+
+    if (process.env.NODE_ENV !== 'development') {
+      // Only log in development
+    } else {
+      console.log('Email send attempt to:', to)
+      console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
+    }
 
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -32,17 +56,21 @@ export async function POST(request: NextRequest) {
       }),
     })
 
-    const responseText = await response.text()
-    console.log('Brevo response status:', response.status)
-    console.log('Brevo response body:', responseText)
-
     if (!response.ok) {
-      return NextResponse.json({ error: responseText }, { status: 500 })
+      const responseText = await response.text()
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Brevo response status:', response.status)
+        console.log('Brevo response body:', responseText)
+      }
+      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    console.error('Email send error:', err?.message)
-    return NextResponse.json({ error: err?.message }, { status: 500 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal error'
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Email send error:', message)
+    }
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

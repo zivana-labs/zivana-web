@@ -183,7 +183,7 @@ Log in to your dashboard at zivana.network/contribute/dashboard to submit.
 |---|---|
 | `CRON_SECRET` | Random secret string — must match the value in Vercel environment variables |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — required to read all assigned tasks bypassing RLS |
+| `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — required to read all assigned tasks bypassing RLS |
 | `BREVO_API_KEY_REST` | Brevo REST API key for email sending |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather |
 
@@ -288,7 +288,7 @@ Internal errors are logged to the console but never returned to Telegram.
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key — required to bypass RLS when updating contributor records |
+| `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` | Service role key — required to bypass RLS when updating contributor records |
 | `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
 
 
@@ -311,7 +311,7 @@ When adding a new API route to the project:
 5. Never expose stack traces in error responses — return generic error messages to the caller and log details to the console
 6. If the route requires authentication add an auth check at the top before any business logic
 7. If the route is called by Vercel cron add a Bearer token check using `CRON_SECRET`
-8. If the route needs to bypass RLS use the `SUPABASE_SERVICE_ROLE_KEY` — never the anon key or publishable key
+8. If the route needs to bypass RLS use the `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` — never the anon key or publishable key
 9. Document the route in this file
 
 ### Route handler template

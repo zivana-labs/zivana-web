@@ -31,6 +31,9 @@ type Task = {
   assigned_to: string | null
   claimed_at: string | null
   deadline_at: string | null
+  extension_requested_at: string | null
+  extension_granted: boolean
+  extended_deadline_at: string | null
   created_at: string
 }
 
@@ -188,6 +191,33 @@ function TasksContent() {
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
+    }
+    setActionLoading(false)
+  }
+
+  async function handleGrantExtension(taskId: string) {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    setActionLoading(true)
+    const supabase = createClient()
+
+    const extensionDays = task.complexity === 'small' ? 1 : task.complexity === 'medium' ? 2 : 3
+    const baseDeadline = new Date(task.deadline_at!)
+    const extendedDeadline = new Date(baseDeadline.getTime() + extensionDays * 24 * 60 * 60 * 1000)
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        extension_granted: true,
+        extended_deadline_at: extendedDeadline.toISOString(),
+      })
+      .eq('id', taskId)
+
+    if (!error) {
+      setActionSuccess(`Extension granted — new deadline: ${extendedDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`)
+      setSelected(null)
+      await fetchTasks()
+      setTimeout(() => setActionSuccess(''), 4000)
     }
     setActionLoading(false)
   }
@@ -476,6 +506,25 @@ function TasksContent() {
               <button onClick={handleUpdate} disabled={actionLoading} className="btn-primary" style={{ fontSize: 13, opacity: actionLoading ? 0.7 : 1 }}>
                 {actionLoading ? 'Saving...' : 'Save changes'}
               </button>
+              {selected.extension_requested_at && !selected.extension_granted && (
+                <button
+                  onClick={() => handleGrantExtension(selected.id)}
+                  disabled={actionLoading}
+                  style={{
+                    fontSize: 13,
+                    padding: '10px 20px',
+                    borderRadius: 9999,
+                    border: '1px solid rgba(167,139,250,0.3)',
+                    background: 'rgba(109,40,217,0.1)',
+                    color: '#A78BFA',
+                    fontFamily: 'Switzer, sans-serif',
+                    cursor: 'pointer',
+                    opacity: actionLoading ? 0.7 : 1,
+                  }}
+                >
+                  Grant extension request
+                </button>
+              )}
               {selected.status === 'assigned' && (
                 <button
                   onClick={() => handleUnassign(selected.id)}

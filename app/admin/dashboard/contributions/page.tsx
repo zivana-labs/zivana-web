@@ -103,16 +103,36 @@ function ContributionsContent() {
     setActionLoading(true)
     const supabase = createClient()
 
-    const finalPoints = Math.round(basePoints * (selected.timing_multiplier ?? 1.0))
+    // MED-4 — clamp base_points to valid range server-side before writing
+    const range = BASE_POINTS_RANGE[selected.category]?.[selected.complexity]
+    const clampedBasePoints = range
+      ? Math.max(range[0], Math.min(range[1], basePoints))
+      : basePoints
+
+    const finalPoints = Math.round(clampedBasePoints * (selected.timing_multiplier ?? 1.0))
+
+    // MED-5 — record which core team member performed the verification
+    const { data: { user } } = await supabase.auth.getUser()
+    let verifiedById: string | null = null
+
+    if (user) {
+      const { data: coreTeamMember } = await supabase
+        .from('core_team')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      verifiedById = coreTeamMember?.id ?? null
+    }
 
     const { error } = await supabase
       .from('contributions')
       .update({
         status: 'verified',
         final_points: finalPoints,
-        base_points: basePoints,
+        base_points: clampedBasePoints,
         notes: reviewNotes || null,
         verified_at: new Date().toISOString(),
+        verified_by: verifiedById,
       })
       .eq('id', selected.id)
 

@@ -41,6 +41,15 @@ const POINT_RANGES: Record<string, Record<string, [number, number]>> = {
   community:  { small: [10, 30],   medium: [60, 120],  large: [100, 150] },
 }
 
+function esc(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 function CreateTaskContent() {
   const router = useRouter()
   const [contributors, setContributors] = useState<Contributor[]>([])
@@ -127,14 +136,14 @@ function CreateTaskContent() {
                     Task assigned to you
                   </h1>
                   <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 24px;">
-                    Hi ${displayName}, the Zivana core team has assigned a task directly to you.
+                    Hi ${esc(displayName)}, the Zivana core team has assigned a task directly to you.
                   </p>
                   <div style="background:#13101E;border:1px solid #1C1730;border-radius:12px;padding:20px;margin:0 0 24px;">
-                    <p style="font-size:16px;font-weight:600;color:#E8E6F0;margin:0 0 12px;">${form.title}</p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Category: <span style="color:#A78BFA;text-transform:capitalize;">${form.category}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Complexity: <span style="color:#A78BFA;text-transform:capitalize;">${form.complexity}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Start date: <span style="color:#E8E6F0;">${startDateStr}</span></p>
-                    <p style="font-size:13px;color:#7B6FA8;margin:0;">Deadline: <span style="color:#E8E6F0;">${deadlineDateStr}</span></p>
+                    <p style="font-size:16px;font-weight:600;color:#E8E6F0;margin:0 0 12px;">${esc(form.title)}</p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Category: <span style="color:#A78BFA;text-transform:capitalize;">${esc(form.category)}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Complexity: <span style="color:#A78BFA;text-transform:capitalize;">${esc(form.complexity)}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0 0 8px;">Start date: <span style="color:#E8E6F0;">${esc(startDateStr)}</span></p>
+                    <p style="font-size:13px;color:#7B6FA8;margin:0;">Deadline: <span style="color:#E8E6F0;">${esc(deadlineDateStr)}</span></p>
                   </div>
                   <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 32px;">
                     Log in to your dashboard to view the full task description and submit your work when complete.
@@ -144,7 +153,7 @@ function CreateTaskContent() {
                     Go to your dashboard
                   </a>
                   <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
-                    <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Protocol — zivana.network</p>
+                    <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Network — zivana.network</p>
                   </div>
                 </div>
               `,

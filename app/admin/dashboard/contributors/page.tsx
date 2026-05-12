@@ -36,6 +36,15 @@ const CATEGORY_COLOURS: Record<string, string> = {
 
 const STATUS_OPTIONS = ['all', 'pending', 'active', 'inactive']
 
+function esc(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 function ContributorsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -110,7 +119,7 @@ function ContributorsContent() {
             htmlContent: `
               <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0D0B14;padding:40px 32px;border-radius:16px;">
                 <h1 style="font-size:22px;font-weight:600;color:#E8E6F0;margin:0 0 12px;letter-spacing:-0.02em;">
-                  Welcome to Zivana, ${contributorName}
+                  Welcome to Zivana, ${esc(contributorName)}
                 </h1>
                 <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 24px;">
                   Your contributor application has been reviewed and approved by the core team. You now have full access to the contributor portal.
@@ -123,7 +132,7 @@ function ContributorsContent() {
                   Sign in to your dashboard
                 </a>
                 <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
-                  <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Protocol — zivana.network</p>
+                  <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Network — zivana.network</p>
                   <p style="font-size:11px;color:#2D2450;margin:4px 0 0;">You are receiving this because you applied to contribute to Zivana Protocol.</p>
                 </div>
               </div>

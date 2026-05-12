@@ -6,6 +6,27 @@ This document covers known limitations, bugs that are deferred, planned features
 
 ## Known issues
 
+### Server-side middleware auth gates incompatible with implicit flow
+
+**Status:** Architectural constraint — intentional design decision
+**Affected:** `middleware.ts`, admin panel, contributor portal
+
+The project uses Supabase implicit flow for magic link authentication. In implicit flow the session token is delivered in the URL fragment (`#access_token=...`) and stored in `localStorage` by the Supabase client. It is never written to cookies by design.
+
+This means the Next.js middleware (`middleware.ts`) cannot read or verify the session on the server side. `updateSession()` from `@supabase/ssr` can only sync a session that already exists in cookies — it cannot establish or verify a localStorage-only session. Any attempt to add auth-based redirects in middleware will redirect all authenticated users to the sign-in page because the server sees no session cookie.
+
+**Consequence:** The admin panel and contributor portal are protected entirely client-side:
+- `AdminSidebar` checks `core_team` membership on mount and redirects non-members immediately
+- Contributor dashboard checks auth via `supabase.auth.getUser()` on mount and redirects unauthenticated users
+
+This is safe because Supabase Row Level Security enforces data access at the database level regardless of application-layer auth checks. An unauthenticated request using the anon key cannot read or write protected data even if it bypasses the client-side redirect.
+
+**Why not switch to PKCE flow:** PKCE flow stores a code verifier in the browser that made the magic link request. If the user opens the magic link on a different browser or device — common for mobile contributors who request the link on desktop — the verification fails with an invalid link error. This is a critical UX regression for the Nigerian contributor base.
+
+**Future fix:** A migration to PKCE flow would allow server-side middleware auth gates and is the correct long-term path. It requires updating the Supabase client configuration, the callback page, and communicating the cross-browser limitation to contributors before rollout.
+
+---
+
 ### Next.js 14 known CVEs — upgrade pending
 
 The project runs Next.js 14.2.29 which has 21 known vulnerabilities reported by GitHub Dependabot. Most affect image optimization, server components DoS, and cache poisoning edge cases. None directly compromise user data or authentication on a Vercel-hosted deployment since Supabase RLS handles data security independently.

@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       .not('deadline_at', 'is', null)
 
     if (error) {
-      console.error('Reminder fetch error:', error.message)
+      if (process.env.NODE_ENV === 'development') console.error('Reminder fetch error:', error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -120,9 +120,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sent, checked: tasks.length })
 
   } catch (err) {
-    console.error('Reminder job error:', err)
+    if (process.env.NODE_ENV === 'development') console.error('Reminder job error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
+}
+
+function esc(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 async function sendReminders(
@@ -168,27 +177,27 @@ async function sendEmail(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'api-key': process.env.BREVO_API_KEY!,
+      'api-key': process.env.BREVO_API_KEY_REST!,
     },
     body: JSON.stringify({
-      sender: { name: 'Zivana Protocol', email: 'hello@zivana.network' },
+      sender: { name: 'Zivana Network', email: 'hello@zivana.network' },
       to: [{ email, name }],
       subject,
       textContent: body,
       htmlContent: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0D0B14;padding:40px 32px;border-radius:16px;">
           <h1 style="font-size:20px;font-weight:600;color:#E8E6F0;margin:0 0 12px;letter-spacing:-0.02em;">
-            ${subject}
+            ${esc(subject)}
           </h1>
           <p style="font-size:15px;color:#7B6FA8;line-height:1.7;margin:0 0 28px;">
-            ${body.replace('zivana.network/contribute/dashboard', '<a href="https://zivana.network/contribute/dashboard" style="color:#A78BFA;">your dashboard</a>')}
+            ${esc(body).replace('zivana.network/contribute/dashboard', '<a href="https://zivana.network/contribute/dashboard" style="color:#A78BFA;">your dashboard</a>')}
           </p>
           <a href="https://zivana.network/contribute/dashboard"
             style="display:inline-block;background:linear-gradient(135deg,#A78BFA,#6D28D9,#4C1D95);color:white;padding:12px 24px;border-radius:9999px;font-size:14px;font-weight:500;text-decoration:none;">
             Go to dashboard
           </a>
           <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
-            <p style="font-size:11px;color:#4A3E7A;margin:0;">Zivana Protocol — zivana.network</p>
+            <p style="font-size:11px;color:#4A3E7A;margin:0;">Zivana Network — zivana.network</p>
             <p style="font-size:11px;color:#4A3E7A;margin:4px 0 0;">You are receiving this because you claimed a task on the contributor portal.</p>
           </div>
         </div>

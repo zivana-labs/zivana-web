@@ -498,7 +498,8 @@ function DashboardContent() {
       const { data: contributorData } = await supabase
         .from('contributors')
         .select('*')
-        .eq('email', user.email)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
         .single()
 
 
@@ -700,43 +701,37 @@ function DashboardContent() {
   async function handleUnclaim(taskId: string) {
     if (!contributor) return
     const supabase = createClient()
+
     const { error } = await supabase
-      .from('tasks')
-      .update({
-        status: 'open',
-        assigned_to: null,
-        claimed_at: null,
-        deadline_at: null,
-        unclaimed_by: [contributor.id],
-        unclaimed_at: [new Date().toISOString()],
+      .rpc('unclaim_task', {
+        task_id: taskId,
+        contributor_id: contributor.id,
       })
-      .eq('id', taskId)
 
     if (!error) {
       setClaimedTasks(prev => prev.filter(t => t.id !== taskId))
+      setActiveClaimCount(prev => Math.max(0, prev - 1))
     }
   }
 
   async function handleRequestExtension(taskId: string) {
     const task = claimedTasks.find(t => t.id === taskId)
     if (!task) return
-    const extensionDays = getExtensionDays(task.complexity)
-    const extendedDeadline = new Date(new Date(task.deadline_at).getTime() + extensionDays * 24 * 60 * 60 * 1000)
     const supabase = createClient()
 
+    // Only record the request — extension_granted and extended_deadline_at
+    // are set exclusively by the core team via the admin panel
     const { error } = await supabase
       .from('tasks')
       .update({
         extension_requested_at: new Date().toISOString(),
-        extension_granted: true,
-        extended_deadline_at: extendedDeadline.toISOString(),
       })
       .eq('id', taskId)
 
     if (!error) {
       setClaimedTasks(prev => prev.map(t =>
         t.id === taskId
-          ? { ...t, extension_requested_at: new Date().toISOString(), extension_granted: true, extended_deadline_at: extendedDeadline.toISOString() }
+          ? { ...t, extension_requested_at: new Date().toISOString() }
           : t
       ))
     }

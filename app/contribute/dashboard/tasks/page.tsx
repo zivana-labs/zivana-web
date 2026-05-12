@@ -57,7 +57,8 @@ function PortalTasksContent() {
         const { data } = await supabase
           .from('contributors')
           .select('id, name, max_claims')
-          .eq('email', user.email)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
           .single()
         if (data) {
           setContributor(data)
@@ -94,7 +95,7 @@ function PortalTasksContent() {
     const deadlineDays = claimTask.complexity === 'small' ? 3 : claimTask.complexity === 'medium' ? 6 : 12
     const deadlineAt = new Date(now.getTime() + deadlineDays * 24 * 60 * 60 * 1000)
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('tasks')
       .update({
         status: 'assigned',
@@ -104,9 +105,17 @@ function PortalTasksContent() {
         deadline_days: deadlineDays,
       })
       .eq('id', claimTask.id)
+      .eq('status', 'open')
+      .select()
 
     if (error) {
       setClaimError('Failed to claim task. Please try again.')
+      setClaiming(false)
+      return
+    }
+
+    if (!data || data.length === 0) {
+      setClaimError('This task was just claimed by someone else. Please choose another.')
       setClaiming(false)
       return
     }

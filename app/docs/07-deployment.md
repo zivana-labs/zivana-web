@@ -23,9 +23,9 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL — found in Supabase dashboard under Settings then API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable key starting with `sb_publishable_` — used by the SSR server client |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Legacy anon key starting with `eyJ` — used by the browser client for implicit flow auth and public reads |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Legacy service role key starting with `eyJ` — server-side only, never expose to browser |
+| `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` | Yes | Legacy service role key starting with `eyJ` — server-side only, never expose to browser |
 
-**Important:** Two separate Supabase key formats exist. The new `sb_` format keys do not work with `@supabase/supabase-js` for service role operations. Always use the legacy `eyJ` format keys for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Find them under Supabase dashboard **Settings** then **API Keys** then **Legacy API Keys**.
+**Important:** Two separate Supabase key formats exist. The new `sb_` format keys do not work with `@supabase/supabase-js` for service role operations. Always use the legacy `eyJ` format keys for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY`. Find them under Supabase dashboard **Settings** then **API Keys** then **Legacy API Keys**.
 
 #### Brevo email
 

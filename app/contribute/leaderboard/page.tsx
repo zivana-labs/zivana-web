@@ -13,8 +13,6 @@ type Contributor = {
   team_name: string
   total_points: number
   verified_contributions: number
-  status: string
-  created_at: string
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -37,7 +35,7 @@ export default function LeaderboardPage() {
       const supabase = createPublicClient()
       const { data, error } = await supabase
         .from('contributors')
-        .select('*')
+        .select('id, name, categories, location, contributor_type, team_name, total_points, verified_contributions')
         .eq('status', 'active')
         .order('total_points', { ascending: false })
 
