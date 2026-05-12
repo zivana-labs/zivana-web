@@ -6,6 +6,31 @@ This document covers known limitations, bugs that are deferred, planned features
 
 ## Known issues
 
+### No right-to-deletion flow — NDPR compliance gap
+
+**Status:** Not implemented — tracked for future delivery
+**Affected:** contributors table, Brevo contacts, Telegram chat IDs
+
+Zivana is subject to the Nigeria Data Protection Regulation (NDPR) which grants data subjects the right to request deletion of their personal data. No deletion mechanism currently exists across any of the three systems that hold contributor PII:
+
+- **Supabase** — contributor record contains name, email, wallet address, social handles, bio, location, Telegram chat ID
+- **Brevo** — contributor email is stored as a contact when approval emails are sent
+- **Telegram** — chat ID is stored in the contributors table and used for reminders
+
+**Planned implementation:**
+
+A deletion flow requires careful design to preserve contribution integrity while removing personal identifiers. The approach will be:
+
+1. Anonymise the contributor record rather than deleting it — replace name with "Former Contributor", clear email, wallet address, social handles, bio, location, telegram_chat_id
+2. Preserve contributions with the anonymised contributor_id so the leaderboard totals and verified contribution counts remain accurate
+3. Remove the contact from Brevo via the Brevo contacts DELETE API
+4. Clear telegram_chat_id and set notification_telegram to false
+5. Invalidate the Supabase auth account
+
+A dedicated admin action and a self-service request form for contributors will be needed. This must be implemented before Zivana reaches significant contributor scale.
+
+---
+
 ### Server-side middleware auth gate incompatible with implicit flow
 
 **Status:** Architectural constraint — not fixable without auth flow migration

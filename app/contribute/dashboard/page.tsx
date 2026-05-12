@@ -561,19 +561,17 @@ function DashboardContent() {
 
     const base_points = BASE_POINTS[form.category]?.[form.complexity] ?? 100
 
-    // Calculate timing multiplier
-    // Community category is always 1.0x regardless of timing
-    const EXEMPT_CATEGORIES = ['community']
-    let timing_multiplier = 1.0
+    const supabase = createClient()
+
+    // Find the claimed task matching this submission
     let deadline_at: string | null = null
+    let claimedTaskId: string | null = null
+    let timing_multiplier = 1.0
 
-    if (!EXEMPT_CATEGORIES.includes(form.category)) {
-      const supabase = createClient()
-
-      // Find the claimed task matching this submission to get its deadline
+    if (form.category !== 'community') {
       const { data: claimedTask } = await supabase
         .from('tasks')
-        .select('deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
+        .select('id, deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
         .eq('assigned_to', contributor.id)
         .eq('status', 'assigned')
         .eq('category', form.category)
@@ -582,35 +580,30 @@ function DashboardContent() {
         .single()
 
       if (claimedTask?.deadline_at) {
-        const now = new Date()
+        claimedTaskId = claimedTask.id
         const effectiveDeadline = claimedTask.extension_granted && claimedTask.extended_deadline_at
-          ? new Date(claimedTask.extended_deadline_at)
-          : new Date(claimedTask.deadline_at)
+          ? claimedTask.extended_deadline_at
+          : claimedTask.deadline_at
 
-        const claimedAt = new Date(claimedTask.claimed_at)
-        const totalMs = (claimedTask.deadline_days ?? 3) * 24 * 60 * 60 * 1000
-        const elapsed = now.getTime() - claimedAt.getTime()
-        const percentUsed = elapsed / totalMs
-        const isOverdue = now > effectiveDeadline
+        deadline_at = effectiveDeadline
 
-        deadline_at = effectiveDeadline.toISOString()
+        // Calculate timing multiplier using server clock via database function
+        const { data: multiplierResult } = await supabase
+          .rpc('calculate_timing_multiplier', {
+            p_claimed_at: claimedTask.claimed_at,
+            p_deadline_at: effectiveDeadline,
+            p_deadline_days: claimedTask.deadline_days ?? 3,
+            p_category: form.category,
+          })
 
-        if (!isOverdue && percentUsed <= 0.5) {
-          // Within first 50% of deadline — early bonus
-          timing_multiplier = 1.2
-        } else if (!isOverdue && percentUsed <= 1.0) {
-          // Between 50% and 100% of deadline — base points
-          timing_multiplier = 1.0
-        } else {
-          // Past deadline but within extension window — late penalty
-          timing_multiplier = 0.8
+        if (multiplierResult !== null && multiplierResult !== undefined) {
+          timing_multiplier = Number(multiplierResult)
         }
       }
     }
 
     const final_points = Math.round(base_points * timing_multiplier)
 
-    const supabase = createClient()
     const { error } = await supabase
       .from('contributions')
       .insert({
@@ -632,27 +625,15 @@ function DashboardContent() {
       setShowForm(false)
       setForm({ title: '', description: '', category: 'technical', complexity: 'medium', evidence_url: '' })
 
-      // Remove the task from active claims since work has been submitted
-      if (form.category !== 'community') {
-        const { data: submittedTask } = await supabase
+      // Mark the claimed task as completed
+      if (form.category !== 'community' && claimedTaskId) {
+        await supabase
           .from('tasks')
-          .select('id')
-          .eq('assigned_to', contributor.id)
-          .eq('status', 'assigned')
-          .eq('category', form.category)
-          .order('claimed_at', { ascending: false })
-          .limit(1)
-          .single()
+          .update({ status: 'completed' })
+          .eq('id', claimedTaskId)
 
-        if (submittedTask) {
-          await supabase
-            .from('tasks')
-            .update({ status: 'completed' })
-            .eq('id', submittedTask.id)
-
-          setClaimedTasks(prev => prev.filter(t => t.id !== submittedTask.id))
-          setActiveClaimCount(prev => Math.max(0, prev - 1))
-        }
+        setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
+        setActiveClaimCount(prev => Math.max(0, prev - 1))
       }
 
       // Refresh contributions
