@@ -10,7 +10,7 @@ const securityHeaders = [
   { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
   {
     key: 'Content-Security-Policy',
-    value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.brevo.com https://api.telegram.org; base-uri 'none'; form-action 'self';"
+    value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.brevo.com https://api.telegram.org; base-uri 'none'; form-action 'self';"
   }
 ]
 

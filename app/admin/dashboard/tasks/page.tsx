@@ -72,6 +72,7 @@ function TasksContent() {
   const [selected, setSelected] = useState<Task | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionSuccess, setActionSuccess] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 6
 
@@ -158,7 +159,6 @@ function TasksContent() {
   }
 
   async function handleDelete(taskId: string) {
-    if (!window.confirm('Are you sure you want to delete this task? This cannot be undone.')) return
     setActionLoading(true)
     const supabase = createClient()
 
@@ -170,6 +170,7 @@ function TasksContent() {
     if (!error) {
       setActionSuccess('Task deleted')
       setSelected(null)
+      setShowDeleteConfirm(false)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
     }
@@ -440,7 +441,7 @@ function TasksContent() {
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setSelected(null); setShowDeleteConfirm(false) } }}
         >
           <div
             className="w-full max-w-lg rounded-2xl border overflow-hidden"
@@ -448,7 +449,7 @@ function TasksContent() {
           >
             <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730' }}>
               <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0' }}>Edit task</p>
-              <button onClick={() => setSelected(null)} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
+              <button onClick={() => { setSelected(null); setShowDeleteConfirm(false) }} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
 
             <div className="p-6 flex flex-col gap-4">
@@ -534,13 +535,38 @@ function TasksContent() {
                   Unassign task
                 </button>
               )}
-              <button
-                onClick={() => handleDelete(selected.id)}
-                disabled={actionLoading}
-                style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1, marginLeft: 'auto' }}
-              >
-                {actionLoading ? 'Deleting...' : 'Delete task'}
-              </button>
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={actionLoading !== false}
+                  style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1, marginLeft: 'auto' }}
+                >
+                  Delete task
+                </button>
+              ) : (
+                <div
+                  className="flex items-center gap-2 p-3 rounded-xl"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', marginLeft: 'auto' }}
+                >
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCA5A5', margin: 0 }}>
+                    This cannot be undone.
+                  </p>
+                  <button
+                    onClick={() => handleDelete(selected.id)}
+                    disabled={actionLoading !== false}
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: 'none', background: 'rgba(239,68,68,0.2)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', opacity: actionLoading ? 0.7 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {actionLoading ? 'Deleting...' : 'Yes, delete'}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={actionLoading !== false}
+                    style={{ fontSize: 12, padding: '6px 14px', borderRadius: 9999, border: '1px solid #1C1730', background: 'transparent', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
