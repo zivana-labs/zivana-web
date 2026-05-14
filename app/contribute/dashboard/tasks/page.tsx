@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { createPublicClient } from '@/lib/supabase/public'
 
 type Task = {
@@ -13,6 +14,9 @@ type Task = {
   point_range_min: number
   point_range_max: number
   status: string
+  deadline_days: number | null
+  primitive: string | null
+  links: { label: string; url: string }[] | null
   created_at: string
 }
 
@@ -32,6 +36,13 @@ const CATEGORY_COLOURS: Record<string, string> = {
 
 const COMPLEXITY_ORDER: Record<string, number> = {
   small: 1, medium: 2, large: 3,
+}
+
+function stripHtml(html: string): string {
+  if (typeof window === 'undefined') return html.replace(/<[^>]*>/g, '')
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
 }
 
 function PortalTasksContent() {
@@ -75,7 +86,7 @@ function PortalTasksContent() {
 
       const { data: taskData } = await publicClient
         .from('tasks')
-        .select('*')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitive, links, created_at')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -289,7 +300,7 @@ function PortalTasksContent() {
                   </p>
 
                   <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 12.5, color: '#7B6FA8', lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {task.description}
+                    {stripHtml(task.description ?? '')}
                   </p>
 
                   <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid #1C1730' }}>
@@ -302,25 +313,44 @@ function PortalTasksContent() {
                     {(() => {
                       const maxReached = contributor !== null && activeClaimCount >= (contributor.max_claims ?? 2)
                       return (
-                        <button
-                          onClick={() => {
-                            if (maxReached) return
-                            setClaimTask(task)
-                            setClaimed(false)
-                            setClaimError('')
-                          }}
-                          disabled={maxReached}
-                          className="btn-primary"
-                          style={{
-                            fontSize: 11,
-                            padding: '8px 16px',
-                            opacity: maxReached ? 0.4 : 1,
-                            cursor: maxReached ? 'not-allowed' : 'pointer',
-                          }}
-                          title={maxReached ? 'You have reached your 2 task limit. Complete or unclaim a task first.' : ''}
-                        >
-                          {maxReached ? 'Limit reached' : 'Claim task'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/contribute/dashboard/tasks/${task.id}`}
+                            style={{
+                              fontSize: 11,
+                              padding: '8px 16px',
+                              borderRadius: 9999,
+                              border: '1px solid #1C1730',
+                              background: 'transparent',
+                              color: '#8B7EC8',
+                              fontFamily: 'Switzer, sans-serif',
+                              textDecoration: 'none',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Read more
+                          </Link>
+                          <button
+                            onClick={() => {
+                              if (maxReached) return
+                              setClaimTask(task)
+                              setClaimed(false)
+                              setClaimError('')
+                            }}
+                            disabled={maxReached}
+                            className="btn-primary"
+                            style={{
+                              fontSize: 11,
+                              padding: '8px 16px',
+                              opacity: maxReached ? 0.4 : 1,
+                              cursor: maxReached ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={maxReached ? 'You have reached your 2 task limit. Complete or unclaim a task first.' : ''}
+                          >
+                            {maxReached ? 'Limit reached' : 'Claim'}
+                          </button>
+                        </div>
                       )
                     })()}
                   </div>
@@ -370,7 +400,7 @@ function PortalTasksContent() {
                     </span>
                   </div>
                   <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>{claimTask.title}</p>
-                  <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', lineHeight: 1.65 }}>{claimTask.description}</p>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#7B6FA8', lineHeight: 1.65 }}>{stripHtml(claimTask.description ?? '')}</p>
                   <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: CATEGORY_COLOURS[claimTask.category] ?? '#A78BFA' }}>
                     {claimTask.point_range_min}–{claimTask.point_range_max} pts
                   </p>

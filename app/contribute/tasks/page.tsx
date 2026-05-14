@@ -13,6 +13,9 @@ type Task = {
   point_range_min: number
   point_range_max: number
   status: string
+  deadline_days: number | null
+  primitive: string | null
+  links: { label: string; url: string }[] | null
   created_at: string
 }
 
@@ -28,6 +31,13 @@ const COMPLEXITY_ORDER: Record<string, number> = {
   small: 1, medium: 2, large: 3,
 }
 
+function stripHtml(html: string): string {
+  if (typeof window === 'undefined') return html.replace(/<[^>]*>/g, '')
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +50,7 @@ export default function TasksPage() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('tasks')
-        .select('*')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitive, links, created_at')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -286,7 +296,7 @@ export default function TasksPage() {
                       {task.title}
                     </p>
 
-                    {/* Description */}
+                    {/* Description preview — strip HTML for plain text truncation */}
                     <p
                       style={{
                         fontFamily: 'Switzer, sans-serif',
@@ -300,7 +310,7 @@ export default function TasksPage() {
                         overflow: 'hidden',
                       }}
                     >
-                      {task.description}
+                      {stripHtml(task.description ?? '')}
                     </p>
 
                     {/* Footer */}
@@ -316,13 +326,31 @@ export default function TasksPage() {
                           {task.point_range_min}–{task.point_range_max}
                         </span>
                       </div>
-                      <Link
-                        href="/contribute/signin"
-                        className="btn-primary"
-                        style={{ fontSize: 11, padding: '8px 16px' }}
-                      >
-                        Claim task
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/contribute/tasks/${task.id}`}
+                          style={{
+                            fontSize: 11,
+                            padding: '8px 16px',
+                            borderRadius: 9999,
+                            border: '1px solid #1C1730',
+                            background: 'transparent',
+                            color: '#8B7EC8',
+                            fontFamily: 'Switzer, sans-serif',
+                            textDecoration: 'none',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Read more
+                        </Link>
+                        <Link
+                          href="/contribute/signin"
+                          className="btn-primary"
+                          style={{ fontSize: 11, padding: '8px 16px', whiteSpace: 'nowrap' }}
+                        >
+                          Claim
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 )
