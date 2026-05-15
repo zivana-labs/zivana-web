@@ -40,7 +40,6 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>(1)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [wasResubmission, setWasResubmission] = useState(false)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
@@ -181,7 +180,15 @@ export default function RegisterPage() {
       return
     }
 
-    setWasResubmission(isResubmission)
+    // Send magic link to verify email and link user_id to contributor record
+    await supabase.auth.signInWithOtp({
+      email: form.email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/contribute/dashboard`,
+        shouldCreateUser: true,
+      },
+    })
+
     setSubmitted(true)
     setSubmitting(false)
   }
@@ -230,7 +237,7 @@ export default function RegisterPage() {
               color: '#E8E6F0',
             }}
           >
-            {wasResubmission ? 'Application resubmitted' : 'Registration submitted'}
+            Check your email
           </h2>
           <p
             className="mb-4"
@@ -242,9 +249,7 @@ export default function RegisterPage() {
               lineHeight: 1.78,
             }}
           >
-            {wasResubmission
-              ? 'Your application has been resubmitted for review. The core team will review your updated profile and get back to you.'
-              : 'Your contributor application has been received. The core team will review your profile and activate your account.'}
+            Your application has been received. We sent a verification link to <span style={{ color: '#A78BFA' }}>{form.email}</span> — click it to verify your email address.
           </p>
           <p
             className="mb-10"
@@ -256,7 +261,7 @@ export default function RegisterPage() {
               lineHeight: 1.7,
             }}
           >
-            You will receive a sign in link at <span style={{ color: '#A78BFA' }}>{form.email}</span> once your account is activated. In the meantime you can browse open tasks and the leaderboard.
+            After verifying your email you will see your application status. The core team reviews all applications before activation — you will be notified when your account is approved.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link href="/contribute/tasks" className="btn-primary">

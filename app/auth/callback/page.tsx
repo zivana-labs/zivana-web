@@ -28,7 +28,8 @@ export default function CallbackPage() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
       if (session) {
-        router.replace('/contribute/dashboard')
+        const next = new URLSearchParams(window.location.search).get('next')
+        router.replace(next ?? '/contribute/dashboard')
         return
       }
 
