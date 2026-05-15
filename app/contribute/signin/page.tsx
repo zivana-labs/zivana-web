@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase/client'
+import { supabase, createClient } from '@/lib/supabase/client'
 import Logo from '@/components/logo/Logo'
 
 export default function SignInPage() {
@@ -12,6 +12,11 @@ export default function SignInPage() {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [showSignup, setShowSignup] = useState(false)
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupSending, setSignupSending] = useState(false)
+  const [signupSent, setSignupSent] = useState(false)
+  const [signupError, setSignupError] = useState('')
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
@@ -35,6 +40,31 @@ export default function SignInPage() {
 
     setSent(true)
     setSending(false)
+  }
+
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault()
+    if (!signupEmail.trim()) return
+    setSignupSending(true)
+    setSignupError('')
+
+    const supabase = createClient()
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: signupEmail.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        shouldCreateUser: true,
+      },
+    })
+
+    if (otpError) {
+      setSignupError('Failed to send link. Please try again.')
+      setSignupSending(false)
+      return
+    }
+
+    setSignupSent(true)
+    setSignupSending(false)
   }
 
   return (
@@ -162,13 +192,14 @@ export default function SignInPage() {
               <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 12, color: '#6B5FA0', textAlign: 'center', lineHeight: 1.6 }}>
                 New to Zivana? Register as a contributor first.
               </p>
-              <Link
-                href="/contribute/register"
+              <button
+                type="button"
+                onClick={() => { setShowSignup(true); setSignupSent(false); setSignupEmail(''); setSignupError('') }}
                 className="btn-outline justify-center"
-                style={{ fontSize: 13 }}
+                style={{ fontSize: 13, width: '100%', cursor: 'pointer' }}
               >
                 Register as contributor
-              </Link>
+              </button>
               <Link
                 href="/contribute"
                 style={{
@@ -186,6 +217,118 @@ export default function SignInPage() {
           </>
         )}
       </div>
+
+      {/* Signup modal */}
+      {showSignup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSignup(false) }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border overflow-hidden"
+            style={{ background: '#13101E', borderColor: '#1C1730' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730' }}>
+              <div>
+                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: '#E8E6F0' }}>
+                  Create your account
+                </p>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 4 }}>
+                  Enter your email to receive a verification link
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSignup(false)}
+                style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6">
+              {signupSent ? (
+                <div className="flex flex-col items-center gap-4 text-center py-4">
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(109,40,217,0.12)', border: '1px solid rgba(109,40,217,0.25)' }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M3 7l11 9 11-9M3 7h22v16H3z" />
+                    </svg>
+                  </div>
+                  <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: '#E8E6F0' }}>
+                    Check your email
+                  </p>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
+                    We sent a verification link to <span style={{ color: '#A78BFA' }}>{signupEmail}</span>. Click it to verify your email and start your registration.
+                  </p>
+                  <button
+                    onClick={() => { setSignupSent(false); setSignupEmail('') }}
+                    style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', marginTop: 4 }}
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSignup} className="flex flex-col gap-4">
+                  <div>
+                    <label style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', letterSpacing: '0.1em', textTransform: 'uppercase' as const, display: 'block', marginBottom: 8 }}>
+                      Email address
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={signupEmail}
+                      onChange={(e) => setSignupEmail(e.target.value)}
+                      required
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        padding: '13px 16px',
+                        background: '#0D0B14',
+                        border: '1px solid #1C1730',
+                        borderRadius: 10,
+                        color: '#E8E6F0',
+                        fontFamily: 'Switzer, sans-serif',
+                        fontSize: 14,
+                        outline: 'none',
+                      }}
+                      onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                      onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                    />
+                  </div>
+
+                  {signupError && (
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5' }}>
+                      {signupError}
+                    </p>
+                  )}
+
+                  <div
+                    className="p-4 rounded-xl"
+                    style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.15)' }}
+                  >
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#A78BFA', lineHeight: 1.65 }}>
+                      After clicking the link in your email you will be directed to complete your contributor application. The core team reviews all applications before activation.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={signupSending || !signupEmail.trim()}
+                    className="btn-primary justify-center"
+                    style={{ opacity: signupSending || !signupEmail.trim() ? 0.5 : 1 }}
+                  >
+                    {signupSending ? 'Sending link...' : 'Send verification link'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { CATEGORY_COLOURS } from '@/lib/constants'
 
 const CATEGORIES = [
   { id: 'technical',  label: 'Technical',  desc: 'Code, smart contracts, SDK, documentation' },
@@ -41,6 +40,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>(1)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [wasResubmission, setWasResubmission] = useState(false)
   const [error, setError] = useState('')
 
   const [form, setForm] = useState({
@@ -89,38 +89,85 @@ export default function RegisterPage() {
 
     const supabase = createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Wait for session to be available — handles implicit flow token restoration delay
+    let { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      // Session may not be restored yet — wait for auth state change
+      user = await new Promise((resolve) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (session?.user) {
+            subscription.unsubscribe()
+            resolve(session.user)
+          }
+        })
+        // Timeout after 3 seconds
+        setTimeout(() => {
+          subscription.unsubscribe()
+          resolve(null)
+        }, 3000)
+      })
+    }
+
+    if (!user) {
+      setError('Session expired. Please sign in again before submitting.')
+      setSubmitting(false)
+      return
+    }
 
     const skillsArray = form.skills
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
 
-    const { error: insertError } = await supabase
+    // Check if contributor already exists with revision_requested status
+    const { data: existing } = await supabase
       .from('contributors')
-      .insert({
-        user_id: user?.id ?? null,
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        contributor_type: form.contributor_type,
-        team_name: form.team_name.trim() || null,
-        location: form.location.trim(),
-        timezone: form.timezone,
-        categories: form.categories,
-        skills: skillsArray.length > 0 ? skillsArray : null,
-        availability_hours_per_week: form.availability_hours_per_week,
-        bio: form.bio.trim(),
-        github_handle: form.github_handle.trim() || null,
-        twitter_handle: form.twitter_handle.trim() || null,
-        linkedin_url: form.linkedin_url.trim() || null,
-        portfolio_url: form.portfolio_url.trim() || null,
-        wallet_address: form.wallet_address.trim() || null,
-        notification_email: form.notification_email,
-        notification_telegram: form.notification_telegram,
-        status: 'pending',
-      })
+      .select('id, status')
+      .eq('user_id', user.id)
+      .single()
+
+    const isResubmission = existing?.status === 'revision_requested'
+
+    const payload = {
+      user_id: user?.id ?? null,
+      name: form.name.trim(),
+      email: user?.email ?? form.email.trim().toLowerCase(),
+      contributor_type: form.contributor_type,
+      team_name: form.team_name.trim() || null,
+      location: form.location.trim(),
+      timezone: form.timezone,
+      categories: form.categories,
+      skills: skillsArray.length > 0 ? skillsArray : null,
+      availability_hours_per_week: form.availability_hours_per_week,
+      bio: form.bio.trim(),
+      github_handle: form.github_handle.trim() || null,
+      twitter_handle: form.twitter_handle.trim() || null,
+      linkedin_url: form.linkedin_url.trim() || null,
+      portfolio_url: form.portfolio_url.trim() || null,
+      wallet_address: form.wallet_address.trim() || null,
+      notification_email: form.notification_email,
+      notification_telegram: form.notification_telegram,
+      status: 'pending',
+      ...(isResubmission && { revision_notes: null }),
+    }
+
+    let insertError
+    if (isResubmission && existing?.id) {
+      const { error } = await supabase
+        .from('contributors')
+        .update(payload)
+        .eq('id', existing.id)
+      insertError = error
+    } else {
+      const { error } = await supabase
+        .from('contributors')
+        .insert(payload)
+      insertError = error
+    }
 
     if (insertError) {
+      console.error('Insert error full:', JSON.stringify(insertError))
       if (insertError.code === '23505') {
         setError('This email is already registered. Sign in from the contribute page.')
       } else if (insertError.code === '42501') {
@@ -134,6 +181,7 @@ export default function RegisterPage() {
       return
     }
 
+    setWasResubmission(isResubmission)
     setSubmitted(true)
     setSubmitting(false)
   }
@@ -182,7 +230,7 @@ export default function RegisterPage() {
               color: '#E8E6F0',
             }}
           >
-            Registration submitted
+            {wasResubmission ? 'Application resubmitted' : 'Registration submitted'}
           </h2>
           <p
             className="mb-4"
@@ -194,7 +242,9 @@ export default function RegisterPage() {
               lineHeight: 1.78,
             }}
           >
-            Your contributor application has been received. The core team will review your profile and activate your account.
+            {wasResubmission
+              ? 'Your application has been resubmitted for review. The core team will review your updated profile and get back to you.'
+              : 'Your contributor application has been received. The core team will review your profile and activate your account.'}
           </p>
           <p
             className="mb-10"

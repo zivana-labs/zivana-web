@@ -33,7 +33,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-void text-light antialiased">
-        <SiteShell>{children}</SiteShell>
+        <div style={{ overflowX: 'hidden' }}>
+          <SiteShell>{children}</SiteShell>
+        </div>
       </body>
     </html>
   )

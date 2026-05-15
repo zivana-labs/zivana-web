@@ -33,7 +33,6 @@ body {
   color: #E8E6F0;
   font-family: 'Switzer', system-ui, sans-serif;
   font-weight: 300;
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -29,6 +29,15 @@ const CATEGORY_COLOURS: Record<string, string> = {
 const CATEGORIES = ['technical', 'design', 'community', 'research', 'operations']
 const COMPLEXITIES = ['small', 'medium', 'large']
 
+const PRIMITIVES = [
+  { value: '', label: 'None / General' },
+  { value: 'trust', label: 'Trust Primitive' },
+  { value: 'identity', label: 'Identity Primitive' },
+  { value: 'reputation', label: 'Reputation Primitive' },
+  { value: 'governance', label: 'Governance Primitive' },
+  { value: 'intelligence', label: 'Market Intelligence Primitive' },
+]
+
 const DEADLINE_DAYS: Record<string, number> = {
   small: 3, medium: 6, large: 12,
 }
@@ -63,6 +72,8 @@ function CreateTaskContent() {
     assignedTo: '',
     startDate: '',
     deadlineDate: '',
+    primitive: '',
+    links: [] as { label: string; url: string }[],
   })
 
   useEffect(() => {
@@ -89,6 +100,8 @@ function CreateTaskContent() {
     const range = POINT_RANGES[form.category]?.[form.complexity]
     const deadlineDays = DEADLINE_DAYS[form.complexity]
 
+    const validLinks = form.links.filter(l => l.url.trim() !== '')
+
     let insertData: Record<string, unknown> = {
       title: form.title.trim(),
       description: form.description,
@@ -98,6 +111,8 @@ function CreateTaskContent() {
       point_range_max: range?.[1] ?? 200,
       deadline_days: deadlineDays,
       status: 'open',
+      primitive: form.primitive || null,
+      links: validLinks.length > 0 ? validLinks : null,
     }
 
     if (createMode === 'direct') {
@@ -300,6 +315,97 @@ function CreateTaskContent() {
               >
                 {COMPLEXITIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Protocol primitive */}
+          <div>
+            <label style={labelStyle}>Protocol primitive</label>
+            <select
+              value={form.primitive}
+              onChange={(e) => setForm({ ...form, primitive: e.target.value })}
+              style={inputStyle}
+            >
+              {PRIMITIVES.map(p => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Links and repositories */}
+          <div>
+            <label style={labelStyle}>Links and repositories</label>
+            <div className="flex flex-col gap-2">
+              {form.links.map((link, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Label e.g. GitHub repo"
+                    value={link.label}
+                    onChange={(e) => {
+                      const updated = [...form.links]
+                      updated[i] = { ...updated[i], label: e.target.value }
+                      setForm({ ...form, links: updated })
+                    }}
+                    style={{ ...inputStyle, flex: 1 }}
+                    onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://github.com/..."
+                    value={link.url}
+                    onChange={(e) => {
+                      const updated = [...form.links]
+                      updated[i] = { ...updated[i], url: e.target.value }
+                      setForm({ ...form, links: updated })
+                    }}
+                    style={{ ...inputStyle, flex: 2 }}
+                    onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = form.links.filter((_, idx) => idx !== i)
+                      setForm({ ...form, links: updated })
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(239,68,68,0.3)',
+                      background: 'rgba(239,68,68,0.08)',
+                      color: '#FCA5A5',
+                      cursor: 'pointer',
+                      fontFamily: 'Switzer, sans-serif',
+                      fontSize: 12,
+                      flexShrink: 0,
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, links: [...form.links, { label: '', url: '' }] })}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #1C1730',
+                  background: 'transparent',
+                  color: '#8B7EC8',
+                  cursor: 'pointer',
+                  fontFamily: 'Switzer, sans-serif',
+                  fontSize: 12,
+                  textAlign: 'left',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#6D28D9')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1C1730')}
+              >
+                + Add link
+              </button>
             </div>
           </div>
 

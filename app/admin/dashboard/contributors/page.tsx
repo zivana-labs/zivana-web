@@ -24,6 +24,8 @@ type Contributor = {
   total_points: number
   verified_contributions: number
   created_at: string
+  rejection_reason: string | null
+  revision_notes: string | null
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -34,7 +36,7 @@ const CATEGORY_COLOURS: Record<string, string> = {
   operations: '#A78BFA',
 }
 
-const STATUS_OPTIONS = ['all', 'pending', 'active', 'inactive']
+const STATUS_OPTIONS = ['all', 'pending', 'revision_requested', 'active', 'inactive', 'rejected']
 
 function esc(str: string): string {
   return str
@@ -66,6 +68,10 @@ function ContributorsContent() {
   const [selected, setSelected] = useState<Contributor | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState('')
+  const [revisionNotes, setRevisionNotes] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [showRevisionForm, setShowRevisionForm] = useState(false)
+  const [showRejectionForm, setShowRejectionForm] = useState(false)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 6
 
@@ -146,6 +152,97 @@ function ContributorsContent() {
       await fetchContributors()
       setTimeout(() => setActionSuccess(''), 3000)
     }
+    setActionLoading(null)
+  }
+
+  async function handleRequestRevision() {
+    if (!selected || !revisionNotes.trim()) return
+    setActionLoading('revision')
+
+    const supabase = createClient()
+    await supabase
+      .from('contributors')
+      .update({ status: 'revision_requested', revision_notes: revisionNotes.trim() })
+      .eq('id', selected.id)
+
+    await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: selected.email,
+        subject: 'Your Zivana contributor application needs revision',
+        htmlContent: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#0D0B14;color:#E8E6F0;">
+            <p style="font-size:22px;font-weight:600;margin:0 0 16px;">Application revision requested</p>
+            <p style="color:#9D8EC8;line-height:1.7;margin:0 0 20px;">
+              Thank you for applying to contribute to Zivana Protocol. After reviewing your application, our team has requested some revisions before we can proceed.
+            </p>
+            <div style="background:#1C1730;border-radius:12px;padding:20px;margin-bottom:24px;">
+              <p style="font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#6B5FA0;margin:0 0 8px;">Notes from the team</p>
+              <p style="color:#E8E6F0;line-height:1.7;margin:0;">${revisionNotes.trim()}</p>
+            </div>
+            <a href="${process.env.NEXT_PUBLIC_SITE_URL}/contribute/register" style="display:inline-block;padding:12px 24px;background:#6D28D9;color:#fff;border-radius:9999px;text-decoration:none;font-size:14px;">
+              Update your application
+            </a>
+            <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
+              <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Network — zivana.network</p>
+            </div>
+          </div>
+        `,
+      }),
+    })
+
+    setActionSuccess('Revision requested — contributor notified')
+    setSelected(null)
+    setShowRevisionForm(false)
+    setRevisionNotes('')
+    await fetchContributors()
+    setTimeout(() => setActionSuccess(''), 3000)
+    setActionLoading(null)
+  }
+
+  async function handleReject() {
+    if (!selected) return
+    setActionLoading('reject')
+
+    const supabase = createClient()
+    await supabase
+      .from('contributors')
+      .update({ status: 'rejected', rejection_reason: rejectionReason.trim() || null })
+      .eq('id', selected.id)
+
+    await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: selected.email,
+        subject: 'Update on your Zivana contributor application',
+        htmlContent: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#0D0B14;color:#E8E6F0;">
+            <p style="font-size:22px;font-weight:600;margin:0 0 16px;">Application update</p>
+            <p style="color:#9D8EC8;line-height:1.7;margin:0 0 20px;">
+              Thank you for your interest in contributing to Zivana Protocol. After careful consideration, we are unable to move forward with your application at this time.
+            </p>
+            ${rejectionReason.trim() ? `
+            <div style="background:#1C1730;border-radius:12px;padding:20px;margin-bottom:24px;">
+              <p style="font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#6B5FA0;margin:0 0 8px;">Feedback</p>
+              <p style="color:#E8E6F0;line-height:1.7;margin:0;">${rejectionReason.trim()}</p>
+            </div>` : ''}
+            <p style="color:#9D8EC8;line-height:1.7;margin:0;">We encourage you to apply again in the future as Zivana continues to grow.</p>
+            <div style="margin-top:32px;padding-top:24px;border-top:1px solid #1C1730;">
+              <p style="font-size:11px;color:#2D2450;margin:0;">Zivana Network — zivana.network</p>
+            </div>
+          </div>
+        `,
+      }),
+    })
+
+    setActionSuccess('Application rejected — contributor notified')
+    setSelected(null)
+    setShowRejectionForm(false)
+    setRejectionReason('')
+    await fetchContributors()
+    setTimeout(() => setActionSuccess(''), 3000)
     setActionLoading(null)
   }
 
@@ -257,11 +354,24 @@ function ContributorsContent() {
       ) : (
         <div className="flex flex-col gap-3">
           {paginated.map((c) => {
-            const isPending = c.status === 'pending'
-            const isActive = c.status === 'active'
-            const statusColor = isActive ? '#5EEAD4' : isPending ? '#FCD34D' : '#8B7EC8'
-            const statusBg = isActive ? 'rgba(15,118,110,0.12)' : isPending ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.05)'
-            const statusBorder = isActive ? 'rgba(15,118,110,0.25)' : isPending ? 'rgba(234,179,8,0.25)' : 'rgba(255,255,255,0.1)'
+            const statusColor =
+              c.status === 'active' ? '#5EEAD4' :
+              c.status === 'pending' ? '#FCD34D' :
+              c.status === 'revision_requested' ? '#7DD3FC' :
+              c.status === 'rejected' ? '#6B5FA0' :
+              '#8B7EC8'
+            const statusBg =
+              c.status === 'active' ? 'rgba(15,118,110,0.12)' :
+              c.status === 'pending' ? 'rgba(234,179,8,0.12)' :
+              c.status === 'revision_requested' ? 'rgba(14,165,233,0.12)' :
+              c.status === 'rejected' ? 'rgba(109,40,217,0.08)' :
+              'rgba(255,255,255,0.05)'
+            const statusBorder =
+              c.status === 'active' ? 'rgba(15,118,110,0.25)' :
+              c.status === 'pending' ? 'rgba(234,179,8,0.25)' :
+              c.status === 'revision_requested' ? 'rgba(14,165,233,0.25)' :
+              c.status === 'rejected' ? 'rgba(109,40,217,0.2)' :
+              'rgba(255,255,255,0.1)'
 
             return (
               <div
@@ -269,7 +379,7 @@ function ContributorsContent() {
                 className="flex items-center gap-4 p-5 rounded-2xl border cursor-pointer"
                 style={{
                   background: selected?.id === c.id ? 'rgba(109,40,217,0.06)' : '#13101E',
-                  borderColor: selected?.id === c.id ? 'rgba(109,40,217,0.3)' : isPending ? 'rgba(234,179,8,0.2)' : '#1C1730',
+                  borderColor: selected?.id === c.id ? 'rgba(109,40,217,0.3)' : (c.status === 'pending' || c.status === 'revision_requested') ? 'rgba(234,179,8,0.2)' : '#1C1730',
                   transition: 'all 0.2s',
                 }}
                 onClick={() => setSelected(selected?.id === c.id ? null : c)}
@@ -331,7 +441,7 @@ function ContributorsContent() {
                     flexShrink: 0,
                   }}
                 >
-                  {c.status}
+                  {c.status === 'revision_requested' ? 'Revision' : c.status}
                 </span>
               </div>
             )
@@ -388,14 +498,14 @@ function ContributorsContent() {
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setSelected(null) }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setSelected(null); setShowRevisionForm(false); setShowRejectionForm(false); setRevisionNotes(''); setRejectionReason('') } }}
         >
           <div
-            className="w-full max-w-lg rounded-2xl border overflow-hidden"
-            style={{ background: '#13101E', borderColor: '#1C1730', maxHeight: '90vh', overflowY: 'auto' }}
+            className="w-full max-w-lg rounded-2xl border"
+            style={{ background: '#13101E', borderColor: '#1C1730', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730' }}>
+            <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730', flexShrink: 0 }}>
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center rounded-full" style={{ width: 40, height: 40, background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(109,40,217,0.25)' }}>
                   <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#A78BFA' }}>
@@ -409,11 +519,11 @@ function ContributorsContent() {
                   <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8' }}>{selected.email}</p>
                 </div>
               </div>
-              <button onClick={() => setSelected(null)} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
+              <button onClick={() => { setSelected(null); setShowRevisionForm(false); setShowRejectionForm(false); setRevisionNotes(''); setRejectionReason('') }} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
 
             {/* Details */}
-            <div className="p-6 flex flex-col gap-3">
+            <div className="p-6 flex flex-col gap-3" style={{ overflowY: 'auto', flex: 1 }}>
               {[
                 { label: 'Categories', value: selected.categories?.join(', ') },
                 { label: 'Type', value: selected.contributor_type },
@@ -438,36 +548,236 @@ function ContributorsContent() {
             </div>
 
             {/* Actions */}
-            <div className="p-6 border-t flex flex-wrap gap-3" style={{ borderColor: '#1C1730' }}>
-              {selected.status === 'pending' && (
-                <button
-                  onClick={() => handleStatusChange(selected.id, 'active', 'approve')}
-                  disabled={actionLoading !== null}
-                  className="btn-primary"
-                  style={{ fontSize: 13, opacity: actionLoading !== null ? 0.7 : 1 }}
-                >
-                  {actionLoading === 'approve' ? 'Approving...' : 'Approve contributor'}
-                </button>
+            <div className="p-6 border-t flex flex-col gap-4" style={{ borderColor: '#1C1730', flexShrink: 0 }}>
+              {/* Pending: Approve + Request Revision + Reject */}
+              {selected.status === 'pending' && !showRevisionForm && !showRejectionForm && (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => handleStatusChange(selected.id, 'active', 'approve')}
+                    disabled={actionLoading !== null}
+                    className="btn-primary"
+                    style={{ fontSize: 13, opacity: actionLoading !== null ? 0.7 : 1 }}
+                  >
+                    {actionLoading === 'approve' ? 'Approving...' : 'Approve'}
+                  </button>
+                  <button
+                    onClick={() => setShowRevisionForm(true)}
+                    disabled={actionLoading !== null}
+                    style={{
+                      fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                      border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.06)',
+                      color: '#FCD34D', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                      opacity: actionLoading !== null ? 0.7 : 1,
+                    }}
+                  >
+                    Request revision
+                  </button>
+                  <button
+                    onClick={() => setShowRejectionForm(true)}
+                    disabled={actionLoading !== null}
+                    style={{
+                      fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                      border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)',
+                      color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                      opacity: actionLoading !== null ? 0.7 : 1,
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
               )}
+
+              {/* Revision form */}
+              {showRevisionForm && (
+                <div className="flex flex-col gap-3">
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCD34D' }}>
+                    Describe what needs to be revised. This will be sent to the contributor.
+                  </p>
+                  <textarea
+                    value={revisionNotes}
+                    onChange={(e) => setRevisionNotes(e.target.value)}
+                    placeholder="e.g. Please expand on your background in DeFi protocols..."
+                    rows={4}
+                    style={{
+                      width: '100%', padding: '12px 14px', background: '#0D0B14',
+                      border: '1px solid #1C1730', borderRadius: 10, color: '#E8E6F0',
+                      fontFamily: 'Switzer, sans-serif', fontSize: 13, resize: 'vertical', outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#FCD34D')}
+                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRequestRevision}
+                      disabled={actionLoading !== null || !revisionNotes.trim()}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.1)',
+                        color: '#FCD34D', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                        opacity: actionLoading !== null || !revisionNotes.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      {actionLoading === 'revision' ? 'Sending...' : 'Send revision request'}
+                    </button>
+                    <button
+                      onClick={() => { setShowRevisionForm(false); setRevisionNotes('') }}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid #1C1730', background: 'transparent',
+                        color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rejection form (pending) */}
+              {selected.status === 'pending' && showRejectionForm && (
+                <div className="flex flex-col gap-3">
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCA5A5' }}>
+                    Optionally add a reason. This will be sent to the contributor.
+                  </p>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Optional: reason for rejection..."
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '12px 14px', background: '#0D0B14',
+                      border: '1px solid #1C1730', borderRadius: 10, color: '#E8E6F0',
+                      fontFamily: 'Switzer, sans-serif', fontSize: 13, resize: 'vertical', outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#EF4444')}
+                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleReject}
+                      disabled={actionLoading !== null}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)',
+                        color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                        opacity: actionLoading !== null ? 0.7 : 1,
+                      }}
+                    >
+                      {actionLoading === 'reject' ? 'Rejecting...' : 'Confirm rejection'}
+                    </button>
+                    <button
+                      onClick={() => { setShowRejectionForm(false); setRejectionReason('') }}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid #1C1730', background: 'transparent',
+                        color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* revision_requested: show notes + approve/reject */}
+              {selected.status === 'revision_requested' && !showRejectionForm && (
+                <>
+                  {selected.revision_notes && (
+                    <div className="p-3 rounded-xl" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0', marginBottom: 6 }}>
+                        Revision notes sent
+                      </p>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCD34D', lineHeight: 1.65 }}>{selected.revision_notes}</p>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => handleStatusChange(selected.id, 'active', 'approve')}
+                      disabled={actionLoading !== null}
+                      className="btn-primary"
+                      style={{ fontSize: 13, opacity: actionLoading !== null ? 0.7 : 1 }}
+                    >
+                      {actionLoading === 'approve' ? 'Approving...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => setShowRejectionForm(true)}
+                      disabled={actionLoading !== null}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)',
+                        color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                        opacity: actionLoading !== null ? 0.7 : 1,
+                      }}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Rejection form (revision_requested) */}
+              {selected.status === 'revision_requested' && showRejectionForm && (
+                <div className="flex flex-col gap-3">
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCA5A5' }}>
+                    Optionally add a reason. This will be sent to the contributor.
+                  </p>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Optional: reason for rejection..."
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '12px 14px', background: '#0D0B14',
+                      border: '1px solid #1C1730', borderRadius: 10, color: '#E8E6F0',
+                      fontFamily: 'Switzer, sans-serif', fontSize: 13, resize: 'vertical', outline: 'none',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#EF4444')}
+                    onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleReject}
+                      disabled={actionLoading !== null}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)',
+                        color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                        opacity: actionLoading !== null ? 0.7 : 1,
+                      }}
+                    >
+                      {actionLoading === 'reject' ? 'Rejecting...' : 'Confirm rejection'}
+                    </button>
+                    <button
+                      onClick={() => { setShowRejectionForm(false); setRejectionReason('') }}
+                      style={{
+                        fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                        border: '1px solid #1C1730', background: 'transparent',
+                        color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Active: deactivate */}
               {selected.status === 'active' && (
                 <button
                   onClick={() => handleStatusChange(selected.id, 'inactive', 'deactivate')}
                   disabled={actionLoading !== null}
                   style={{
-                    fontSize: 13,
-                    padding: '10px 20px',
-                    borderRadius: 9999,
-                    border: '1px solid rgba(239,68,68,0.3)',
-                    background: 'rgba(239,68,68,0.08)',
-                    color: '#FCA5A5',
-                    fontFamily: 'Switzer, sans-serif',
-                    cursor: 'pointer',
+                    fontSize: 13, padding: '10px 20px', borderRadius: 9999,
+                    border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)',
+                    color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer',
                     opacity: actionLoading !== null ? 0.7 : 1,
                   }}
                 >
                   {actionLoading === 'deactivate' ? 'Deactivating...' : 'Deactivate'}
                 </button>
               )}
+
+              {/* Inactive: reactivate */}
               {selected.status === 'inactive' && (
                 <button
                   onClick={() => handleStatusChange(selected.id, 'active', 'reactivate')}
@@ -478,24 +788,15 @@ function ContributorsContent() {
                   {actionLoading === 'reactivate' ? 'Reactivating...' : 'Reactivate'}
                 </button>
               )}
-              {selected.status === 'pending' && (
-                <button
-                  onClick={() => handleStatusChange(selected.id, 'inactive', 'reject')}
-                  disabled={actionLoading !== null}
-                  style={{
-                    fontSize: 13,
-                    padding: '10px 20px',
-                    borderRadius: 9999,
-                    border: '1px solid #1C1730',
-                    background: 'transparent',
-                    color: '#8B7EC8',
-                    fontFamily: 'Switzer, sans-serif',
-                    cursor: 'pointer',
-                    opacity: actionLoading !== null ? 0.7 : 1,
-                  }}
-                >
-                  {actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
-                </button>
+
+              {/* Rejected: show reason */}
+              {selected.status === 'rejected' && selected.rejection_reason && (
+                <div className="p-3 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0', marginBottom: 6 }}>
+                    Rejection reason
+                  </p>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#FCA5A5', lineHeight: 1.65 }}>{selected.rejection_reason}</p>
+                </div>
               )}
             </div>
           </div>
