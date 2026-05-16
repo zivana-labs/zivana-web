@@ -97,8 +97,6 @@ function ProfileEditForm({
     notification_email: contributor.notification_email ?? true,
     notification_telegram: contributor.notification_telegram ?? false,
   })
-  const [claimedTasks, setClaimedTasks] = useState<ClaimedTask[]>([])
-
   const inputStyle = {
     width: '100%',
     padding: '9px 12px',
@@ -465,10 +463,10 @@ function DashboardContent() {
   const [contributor, setContributor] = useState<Contributor | null>(null)
   const [contributions, setContributions] = useState<Contribution[]>([])
   const [claimedTasks, setClaimedTasks] = useState<ClaimedTask[]>([])
-  const [activeClaimCount, setActiveClaimCount] = useState(0)
+
   const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
-  const [tab, setTab] = useState<'overview' | 'contributions' | 'profile'>('overview')
+  const [tab, setTab] = useState<'overview' | 'tasks' | 'contributions' | 'profile'>('overview')
 
   // New contribution form
   const [showForm, setShowForm] = useState(false)
@@ -481,6 +479,8 @@ function DashboardContent() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [reviewResult, setReviewResult] = useState<string | null>(null)
+  const [reviewFeedback, setReviewFeedback] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -532,8 +532,8 @@ function DashboardContent() {
   }, [router])
 
   useEffect(() => {
-    const t = searchParams.get('tab') as 'overview' | 'contributions' | 'profile'
-    if (t && ['overview', 'contributions', 'profile'].includes(t)) {
+    const t = searchParams.get('tab') as 'overview' | 'tasks' | 'contributions' | 'profile'
+    if (t && ['overview', 'tasks', 'contributions', 'profile'].includes(t)) {
       setTab(t)
     } else {
       setTab('overview')
@@ -567,11 +567,12 @@ function DashboardContent() {
     let deadline_at: string | null = null
     let claimedTaskId: string | null = null
     let timing_multiplier = 1.0
+    let taskBrief: string | null = null
 
     if (form.category !== 'community') {
       const { data: claimedTask } = await supabase
         .from('tasks')
-        .select('id, deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
+        .select('id, title, description, deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
         .eq('assigned_to', contributor.id)
         .eq('status', 'assigned')
         .eq('category', form.category)
@@ -586,6 +587,7 @@ function DashboardContent() {
           : claimedTask.deadline_at
 
         deadline_at = effectiveDeadline
+        taskBrief = claimedTask.description ?? null
 
         // Calculate timing multiplier using server clock via database function
         const { data: multiplierResult } = await supabase
@@ -603,8 +605,20 @@ function DashboardContent() {
     }
 
     const final_points = Math.round(base_points * timing_multiplier)
+    const submitted_at = new Date().toISOString()
 
-    const { error } = await supabase
+    // Count previous submissions for this contribution to track resubmissions
+    const { count: previousSubmissions } = await supabase
+      .from('contributions')
+      .select('*', { count: 'exact', head: true })
+      .eq('contributor_id', contributor.id)
+      .eq('category', form.category)
+      .eq('title', form.title.trim())
+
+    const submission_count = (previousSubmissions ?? 0) + 1
+
+    // Insert the contribution record first
+    const { data: insertedContribution, error } = await supabase
       .from('contributions')
       .insert({
         contributor_id: contributor.id,
@@ -618,32 +632,98 @@ function DashboardContent() {
         deadline_at,
         evidence_url: form.evidence_url || null,
         status: 'submitted',
+        submission_count,
       })
+      .select('id')
+      .single()
 
-    if (!error) {
-      setSubmitSuccess(true)
-      setShowForm(false)
-      setForm({ title: '', description: '', category: 'technical', complexity: 'medium', evidence_url: '' })
-
-      // Mark the claimed task as completed
-      if (form.category !== 'community' && claimedTaskId) {
-        await supabase
-          .from('tasks')
-          .update({ status: 'completed' })
-          .eq('id', claimedTaskId)
-
-        setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
-        setActiveClaimCount(prev => Math.max(0, prev - 1))
-      }
-
-      // Refresh contributions
-      const { data } = await supabase
-        .from('contributions')
-        .select('*')
-        .eq('contributor_id', contributor.id)
-        .order('created_at', { ascending: false })
-      if (data) setContributions(data)
+    if (error || !insertedContribution) {
+      setSubmitting(false)
+      return
     }
+
+    // Call the review service via our server-side API route
+    const reviewServiceUrl = process.env.NEXT_PUBLIC_REVIEW_SERVICE_URL
+    let reviewDecision: string | null = null
+    let reviewFeedbackData: Record<string, unknown> | null = null
+
+    if (reviewServiceUrl) {
+      try {
+        const reviewResponse = await fetch('/api/review/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contribution_id: insertedContribution.id,
+            contributor_id: contributor.id,
+            title: form.title,
+            description: form.description,
+            category: form.category,
+            complexity: form.complexity,
+            evidence_url: form.evidence_url || null,
+            submission_count,
+            submitted_at,
+            task_brief: taskBrief,
+          }),
+        })
+
+        if (reviewResponse.ok) {
+          const reviewResult = await reviewResponse.json()
+          reviewDecision = reviewResult.decision
+          reviewFeedbackData = reviewResult.feedback
+
+          // Update the contribution with the review result
+          const newStatus = reviewResult.decision === 'approved'
+            ? 'verified'
+            : reviewResult.decision === 'human_required'
+            ? 'submitted'
+            : 'rejected'
+
+          await supabase
+            .from('contributions')
+            .update({
+              review_decision: reviewResult.decision,
+              review_score: reviewResult.overall_score,
+              review_feedback: reviewResult.feedback,
+              status: newStatus,
+              ...(newStatus === 'verified' && {
+                final_points: Math.round(base_points * timing_multiplier),
+                verified_at: new Date().toISOString(),
+              }),
+            })
+            .eq('id', insertedContribution.id)
+        }
+      } catch (reviewErr) {
+        // Review service failure is non-fatal — contribution stays as submitted
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Review service call failed:', reviewErr)
+        }
+      }
+    }
+
+    // Mark the claimed task as completed
+    if (form.category !== 'community' && claimedTaskId) {
+      await supabase
+        .from('tasks')
+        .update({ status: 'completed' })
+        .eq('id', claimedTaskId)
+
+      setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
+    }
+
+    // Show appropriate success message based on review decision
+    setReviewResult(reviewDecision)
+    setReviewFeedback(reviewFeedbackData)
+    setSubmitSuccess(true)
+    setShowForm(false)
+    setForm({ title: '', description: '', category: 'technical', complexity: 'medium', evidence_url: '' })
+
+    // Refresh contributions
+    const { data } = await supabase
+      .from('contributions')
+      .select('*')
+      .eq('contributor_id', contributor.id)
+      .order('created_at', { ascending: false })
+    if (data) setContributions(data)
 
     setSubmitting(false)
   }
@@ -691,7 +771,6 @@ function DashboardContent() {
 
     if (!error) {
       setClaimedTasks(prev => prev.filter(t => t.id !== taskId))
-      setActiveClaimCount(prev => Math.max(0, prev - 1))
     }
   }
 
@@ -794,7 +873,6 @@ function DashboardContent() {
 
   const color = CATEGORY_COLOURS[contributor.categories?.[0]] ?? '#A78BFA'
   const pendingCount = contributions.filter(c => c.status === 'submitted' || c.status === 'under_review').length
-  const verifiedCount = contributions.filter(c => c.status === 'verified').length
 
   return (
     <div className="bg-void min-h-screen pt-36 pb-28">
@@ -918,10 +996,19 @@ function DashboardContent() {
 
         {/* Tabs */}
         <div className="flex gap-0 border-b mb-8" style={{ borderColor: '#1C1730' }}>
-          {(['overview', 'contributions', 'profile'] as const).map((t) => (
+          {(['overview', 'tasks', 'contributions', 'profile'] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+              setTab(t)
+              const params = new URLSearchParams(window.location.search)
+              if (t === 'overview') {
+                params.delete('tab')
+              } else {
+                params.set('tab', t)
+              }
+              window.history.replaceState(null, '', `/contribute/dashboard?${params.toString()}`)
+            }}
               style={{
                 padding: '12px 20px',
                 fontFamily: 'Switzer, sans-serif',
@@ -938,7 +1025,7 @@ function DashboardContent() {
                 transition: 'color 0.2s',
               }}
             >
-              {t}
+              {t === 'tasks' ? 'My tasks' : t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -947,149 +1034,97 @@ function DashboardContent() {
         {tab === 'overview' && (
           <div className="flex flex-col gap-6">
             {submitSuccess && (
-              <div
-                className="flex items-center gap-3 p-4 rounded-xl border"
-                style={{ background: 'rgba(15,118,110,0.1)', borderColor: 'rgba(15,118,110,0.25)' }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M2 8l4 4L14 3" />
-                </svg>
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#5EEAD4' }}>
-                  Contribution submitted successfully. The core team will review it shortly.
+  <div className="flex flex-col gap-4 p-6 rounded-2xl border" style={{
+    background: reviewResult === 'approved'
+      ? 'rgba(15,118,110,0.08)'
+      : reviewResult === 'rejected'
+      ? 'rgba(109,40,217,0.06)'
+      : '#13101E',
+    borderColor: reviewResult === 'approved'
+      ? 'rgba(15,118,110,0.25)'
+      : reviewResult === 'rejected'
+      ? 'rgba(109,40,217,0.2)'
+      : '#1C1730',
+  }}>
+    {/* Icon */}
+    <div className="flex items-center gap-3">
+      {reviewResult === 'approved' ? (
+        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(15,118,110,0.12)', border: '1px solid rgba(15,118,110,0.25)' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M3 9l4 4L15 4" />
+          </svg>
+        </div>
+      ) : reviewResult === 'rejected' ? (
+        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,40,217,0.08)', border: '1px solid rgba(109,40,217,0.2)' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="9" cy="9" r="7" />
+            <path d="M9 5v4M9 13v.5" />
+          </svg>
+        </div>
+      ) : (
+        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#FCD34D" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="9" cy="9" r="7" />
+            <path d="M9 6v4M9 13v.5" />
+          </svg>
+        </div>
+      )}
+      <div>
+        <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
+          {reviewResult === 'approved'
+            ? 'Contribution approved'
+            : reviewResult === 'rejected'
+            ? 'Contribution needs work'
+            : 'Contribution submitted'}
+        </p>
+        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 2 }}>
+          {reviewResult === 'approved'
+            ? 'Your contribution has been automatically verified. Points have been awarded.'
+            : reviewResult === 'rejected'
+            ? 'The automated review flagged some issues. See the feedback below.'
+            : 'Your contribution is under review by the core team.'}
+        </p>
+      </div>
+    </div>
+
+    {/* Feedback from review service */}
+    {reviewFeedback && reviewResult === 'rejected' && (
+      <div className="flex flex-col gap-2 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
+        {typeof reviewFeedback.summary === 'string' && reviewFeedback.summary && (
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#C4B5FD', lineHeight: 1.65 }}>
+            {reviewFeedback.summary}
+          </p>
+        )}
+        {Array.isArray(reviewFeedback.issues) && reviewFeedback.issues.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2">
+            {(reviewFeedback.issues as { check: string; message: string }[]).map((issue, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 6, flexShrink: 0 }} />
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.6 }}>
+                  {issue.message}
                 </p>
               </div>
-            )}
+            ))}
+          </div>
+        )}
+        {typeof reviewFeedback.what_to_do === 'string' && reviewFeedback.what_to_do && (
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65, marginTop: 4, borderTop: '1px solid #1C1730', paddingTop: 8 }}>
+            <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
+            {reviewFeedback.what_to_do}
+          </p>
+        )}
+      </div>
+    )}
 
-            {/* Active claims */}
-            {claimedTasks.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
-                    Active claims
-                  </p>
-                  <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}>
-                    {claimedTasks.length} of {contributor?.max_claims ?? 2} slots used
-                  </span>
-                </div>
-                <div className="flex flex-col gap-4">
-                  {claimedTasks.map((task) => {
-                    const time = getTimeRemaining(task)
-                    const catColor = CATEGORY_COLOURS[task.category] ?? '#A78BFA'
-                    const urgencyColor = time.urgency === 'overdue' ? '#E8E6F0' : time.urgency === 'urgent' ? '#C4B5FD' : '#A78BFA'
-                    const urgencyBg = time.urgency === 'overdue' ? 'rgba(109,40,217,0.15)' : time.urgency === 'urgent' ? 'rgba(139,92,246,0.1)' : 'rgba(109,40,217,0.08)'
-                    const urgencyBorder = time.urgency === 'overdue' ? 'rgba(167,139,250,0.35)' : time.urgency === 'urgent' ? 'rgba(139,92,246,0.25)' : 'rgba(109,40,217,0.2)'
-                    const effectiveDeadline = task.extension_granted && task.extended_deadline_at
-                      ? new Date(task.extended_deadline_at)
-                      : new Date(task.deadline_at)
-
-                    return (
-                      <div key={task.id} className="rounded-2xl border overflow-hidden" style={{ background: '#13101E', borderColor: '#1C1730' }}>
-
-                        {/* Progress bar */}
-                        <div style={{ height: 3, background: '#1C1730' }}>
-                          <div style={{ height: '100%', width: `${Math.min(100, Math.max(2, time.percentUsed * 100))}%`, background: 'linear-gradient(90deg, #6D28D9, #A78BFA)', transition: 'width 1s ease' }} />
-                        </div>
-
-                        <div className="p-5">
-                          {/* Header */}
-                          <div className="flex items-start justify-between gap-4 mb-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                <span style={{ padding: '2px 8px', borderRadius: 20, background: catColor + '15', color: catColor, border: `1px solid ${catColor}30`, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                  {task.category}
-                                </span>
-                                <span style={{ padding: '2px 8px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                  {task.complexity}
-                                </span>
-                                {task.extension_granted && (
-                                  <span style={{ padding: '2px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.12)', color: '#FCD34D', border: '1px solid rgba(234,179,8,0.25)', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                                    Extended
-                                  </span>
-                                )}
-                              </div>
-                              <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0', lineHeight: 1.3 }}>
-                                {task.title}
-                              </p>
-                            </div>
-                            <div className="flex-shrink-0 text-right">
-                              <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: catColor, lineHeight: 1 }}>
-                                {task.point_range_min}–{task.point_range_max}
-                              </div>
-                              <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 9, color: '#8B7EC8', marginTop: 2 }}>pts</div>
-                            </div>
-                          </div>
-
-                          {/* Countdown */}
-                          <div className="flex items-center justify-between p-3 rounded-xl mb-4" style={{ background: urgencyBg, border: `1px solid ${urgencyBorder}` }}>
-                            <div className="flex items-center gap-2">
-                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={urgencyColor} strokeWidth="1.5" strokeLinecap="round">
-                                <circle cx="7" cy="7" r="6" />
-                                <path d="M7 4v3l2 2" />
-                              </svg>
-                              <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: urgencyColor, fontWeight: 500 }}>
-                                {time.isOverdue
-                                  ? time.days === 0
-                                    ? `Overdue by ${time.hours} hour${time.hours !== 1 ? 's' : ''}`
-                                    : `Overdue by ${time.days} day${time.days !== 1 ? 's' : ''}`
-                                  : time.days > 0
-                                  ? `${time.days} day${time.days !== 1 ? 's' : ''} ${time.hours}h remaining`
-                                  : `${time.hours} hour${time.hours !== 1 ? 's' : ''} remaining`
-                                }
-                              </span>
-                            </div>
-                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8' }}>
-                              Due {effectiveDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </span>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              onClick={() => {
-                                setForm({ title: task.title, description: '', category: task.category, complexity: task.complexity, evidence_url: '' })
-                                setShowForm(true)
-                              }}
-                              className="btn-primary"
-                              style={{ fontSize: 11, padding: '7px 14px' }}
-                            >
-                              Submit work
-                            </button>
-
-                            {canRequestExtension(task) && (
-                              <button
-                                onClick={() => handleRequestExtension(task.id)}
-                                style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.08)', color: '#FCD34D', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
-                              >
-                                Request +{getExtensionDays(task.complexity)}d extension
-                              </button>
-                            )}
-
-                            {task.extension_requested_at && !task.extension_granted && (
-                              <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', padding: '7px 0' }}>
-                                Extension pending
-                              </span>
-                            )}
-
-                            <button
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to unclaim this task? You will not be able to reclaim it for 30 days.')) {
-                                  handleUnclaim(task.id)
-                                }
-                              }}
-                              style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
-                              onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#FCA5A5'; el.style.borderColor = 'rgba(239,68,68,0.4)'; el.style.background = 'rgba(239,68,68,0.06)' }}
-                              onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#8B7EC8'; el.style.borderColor = 'rgba(239,68,68,0.2)'; el.style.background = 'transparent' }}
-                            >
-                              Unclaim
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+    <button
+      onClick={() => { setSubmitSuccess(false); setReviewResult(null); setReviewFeedback(null) }}
+      className="btn-outline"
+      style={{ fontSize: 12, alignSelf: 'flex-start' }}
+    >
+      Dismiss
+    </button>
+  </div>
+)}
 
             {/* Quick actions */}
             <div className="grid sm:grid-cols-2 gap-4">
@@ -1207,6 +1242,156 @@ function DashboardContent() {
                     View all {contributions.length} contributions
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* My Tasks tab */}
+        {tab === 'tasks' && (
+          <div className="flex flex-col gap-6">
+            {claimedTasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 rounded-2xl border" style={{ background: '#13101E', borderColor: '#1C1730' }}>
+                <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: '#E8E6F0', marginBottom: 6 }}>
+                  No active tasks
+                </p>
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#8B7EC8', marginBottom: 20 }}>
+                  Browse the open task board and claim a task to get started
+                </p>
+                <Link href="/contribute/dashboard/tasks" className="btn-primary" style={{ fontSize: 13 }}>
+                  Browse open tasks
+                </Link>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
+                    Active claims
+                  </p>
+                  <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}>
+                    {claimedTasks.length} of {contributor?.max_claims ?? 2} slots used
+                  </span>
+                </div>
+                <div className="flex flex-col gap-4">
+                  {claimedTasks.map((task) => {
+                    const time = getTimeRemaining(task)
+                    const catColor = CATEGORY_COLOURS[task.category] ?? '#A78BFA'
+                    const urgencyColor = time.urgency === 'overdue' ? '#E8E6F0' : time.urgency === 'urgent' ? '#C4B5FD' : '#A78BFA'
+                    const urgencyBg = time.urgency === 'overdue' ? 'rgba(109,40,217,0.15)' : time.urgency === 'urgent' ? 'rgba(139,92,246,0.1)' : 'rgba(109,40,217,0.08)'
+                    const urgencyBorder = time.urgency === 'overdue' ? 'rgba(167,139,250,0.35)' : time.urgency === 'urgent' ? 'rgba(139,92,246,0.25)' : 'rgba(109,40,217,0.2)'
+                    const effectiveDeadline = task.extension_granted && task.extended_deadline_at
+                      ? new Date(task.extended_deadline_at)
+                      : new Date(task.deadline_at)
+
+                    return (
+                      <div key={task.id} className="rounded-2xl border overflow-hidden" style={{ background: '#13101E', borderColor: '#1C1730' }}>
+
+                        {/* Progress bar */}
+                        <div style={{ height: 3, background: '#1C1730' }}>
+                          <div style={{ height: '100%', width: `${Math.min(100, Math.max(2, time.percentUsed * 100))}%`, background: 'linear-gradient(90deg, #6D28D9, #A78BFA)', transition: 'width 1s ease' }} />
+                        </div>
+
+                        <div className="p-5">
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <span style={{ padding: '2px 8px', borderRadius: 20, background: catColor + '15', color: catColor, border: `1px solid ${catColor}30`, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                                  {task.category}
+                                </span>
+                                <span style={{ padding: '2px 8px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                                  {task.complexity}
+                                </span>
+                                {task.extension_granted && (
+                                  <span style={{ padding: '2px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.12)', color: '#FCD34D', border: '1px solid rgba(234,179,8,0.25)', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                                    Extended
+                                  </span>
+                                )}
+                              </div>
+                              <Link
+                                href={`/contribute/dashboard/tasks/${task.id}`}
+                                style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0', lineHeight: 1.3, textDecoration: 'none' }}
+                              >
+                                {task.title}
+                              </Link>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: catColor, lineHeight: 1 }}>
+                                {task.point_range_min}–{task.point_range_max}
+                              </div>
+                              <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 9, color: '#8B7EC8', marginTop: 2 }}>pts</div>
+                            </div>
+                          </div>
+
+                          {/* Countdown */}
+                          <div className="flex items-center justify-between p-3 rounded-xl mb-4" style={{ background: urgencyBg, border: `1px solid ${urgencyBorder}` }}>
+                            <div className="flex items-center gap-2">
+                              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={urgencyColor} strokeWidth="1.5" strokeLinecap="round">
+                                <circle cx="7" cy="7" r="6" />
+                                <path d="M7 4v3l2 2" />
+                              </svg>
+                              <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: urgencyColor, fontWeight: 500 }}>
+                                {time.isOverdue
+                                  ? time.days === 0
+                                    ? `Overdue by ${time.hours} hour${time.hours !== 1 ? 's' : ''}`
+                                    : `Overdue by ${time.days} day${time.days !== 1 ? 's' : ''}`
+                                  : time.days > 0
+                                  ? `${time.days} day${time.days !== 1 ? 's' : ''} ${time.hours}h remaining`
+                                  : `${time.hours} hour${time.hours !== 1 ? 's' : ''} remaining`
+                                }
+                              </span>
+                            </div>
+                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8' }}>
+                              Due {effectiveDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => {
+                                setForm({ title: task.title, description: '', category: task.category, complexity: task.complexity, evidence_url: '' })
+                                setShowForm(true)
+                              }}
+                              className="btn-primary"
+                              style={{ fontSize: 11, padding: '7px 14px' }}
+                            >
+                              Submit work
+                            </button>
+
+                            {canRequestExtension(task) && (
+                              <button
+                                onClick={() => handleRequestExtension(task.id)}
+                                style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.08)', color: '#FCD34D', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
+                              >
+                                Request +{getExtensionDays(task.complexity)}d extension
+                              </button>
+                            )}
+
+                            {task.extension_requested_at && !task.extension_granted && (
+                              <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', padding: '7px 0' }}>
+                                Extension pending
+                              </span>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to unclaim this task? You will not be able to reclaim it for 30 days.')) {
+                                  handleUnclaim(task.id)
+                                }
+                              }}
+                              style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
+                              onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#FCA5A5'; el.style.borderColor = 'rgba(239,68,68,0.4)'; el.style.background = 'rgba(239,68,68,0.06)' }}
+                              onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#8B7EC8'; el.style.borderColor = 'rgba(239,68,68,0.2)'; el.style.background = 'transparent' }}
+                            >
+                              Unclaim
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

@@ -1,7 +1,9 @@
 {
-  "/contribute/tasks/page": "app/contribute/tasks/page.js",
-  "/contribute/tasks/[id]/page": "app/contribute/tasks/[id]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/contribute/leaderboard/page": "app/contribute/leaderboard/page.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/dashboard/tasks/page": "app/admin/dashboard/tasks/page.js"
+  "/contribute/contributors/[id]/page": "app/contribute/contributors/[id]/page.js",
+  "/admin/dashboard/team/page": "app/admin/dashboard/team/page.js",
+  "/admin/dashboard/contributions/page": "app/admin/dashboard/contributions/page.js",
+  "/contribute/dashboard/page": "app/contribute/dashboard/page.js",
+  "/contribute/dashboard/leaderboard/page": "app/contribute/dashboard/leaderboard/page.js"
 }
