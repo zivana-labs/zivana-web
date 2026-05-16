@@ -1,3 +1,7 @@
 {
-  "/contribute/signin/page": "app/contribute/signin/page.js"
+  "/contribute/tasks/page": "app/contribute/tasks/page.js",
+  "/contribute/tasks/[id]/page": "app/contribute/tasks/[id]/page.js",
+  "/contribute/leaderboard/page": "app/contribute/leaderboard/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/admin/dashboard/tasks/page": "app/admin/dashboard/tasks/page.js"
 }

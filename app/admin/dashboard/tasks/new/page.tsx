@@ -30,12 +30,12 @@ const CATEGORIES = ['technical', 'design', 'community', 'research', 'operations'
 const COMPLEXITIES = ['small', 'medium', 'large']
 
 const PRIMITIVES = [
-  { value: '', label: 'None / General' },
   { value: 'trust', label: 'Trust Primitive' },
   { value: 'identity', label: 'Identity Primitive' },
   { value: 'reputation', label: 'Reputation Primitive' },
   { value: 'governance', label: 'Governance Primitive' },
   { value: 'intelligence', label: 'Market Intelligence Primitive' },
+  { value: 'distribution', label: 'Distribution Primitive' },
 ]
 
 const DEADLINE_DAYS: Record<string, number> = {
@@ -72,7 +72,7 @@ function CreateTaskContent() {
     assignedTo: '',
     startDate: '',
     deadlineDate: '',
-    primitive: '',
+    primitives: [] as string[],
     links: [] as { label: string; url: string }[],
   })
 
@@ -111,7 +111,7 @@ function CreateTaskContent() {
       point_range_max: range?.[1] ?? 200,
       deadline_days: deadlineDays,
       status: 'open',
-      primitive: form.primitive || null,
+      primitives: form.primitives.length > 0 ? form.primitives : null,
       links: validLinks.length > 0 ? validLinks : null,
     }
 
@@ -318,18 +318,67 @@ function CreateTaskContent() {
             </div>
           </div>
 
-          {/* Protocol primitive */}
+          {/* Protocol primitives */}
           <div>
-            <label style={labelStyle}>Protocol primitive</label>
-            <select
-              value={form.primitive}
-              onChange={(e) => setForm({ ...form, primitive: e.target.value })}
-              style={inputStyle}
+            <label style={labelStyle}>Protocol primitives</label>
+            <div
+              className="flex flex-col gap-1 p-2 rounded-lg"
+              style={{ background: '#0D0B14', border: '1px solid #1C1730' }}
             >
-              {PRIMITIVES.map(p => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
+              {PRIMITIVES.map(p => {
+                const isSelected = form.primitives.includes(p.value)
+                return (
+                  <label
+                    key={p.value}
+                    className="flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer"
+                    style={{
+                      background: isSelected ? 'rgba(109,40,217,0.08)' : 'transparent',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        border: `2px solid ${isSelected ? '#6D28D9' : '#2D2450'}`,
+                        background: isSelected ? '#6D28D9' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {isSelected && (
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                          <path d="M1 4l2 2 4-4" />
+                        </svg>
+                      )}
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        const updated = isSelected
+                          ? form.primitives.filter(v => v !== p.value)
+                          : [...form.primitives, p.value]
+                        setForm({ ...form, primitives: updated })
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: isSelected ? '#A78BFA' : '#8B7EC8' }}>
+                      {p.label}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            {form.primitives.length > 0 && (
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', marginTop: 4 }}>
+                {form.primitives.length} primitive{form.primitives.length > 1 ? 's' : ''} selected
+              </p>
+            )}
           </div>
 
           {/* Links and repositories */}

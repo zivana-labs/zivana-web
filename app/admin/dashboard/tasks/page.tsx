@@ -8,16 +8,6 @@ import dynamic from 'next/dynamic'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
-type Contributor = {
-  id: string
-  name: string
-  email: string
-  categories: string[]
-  contributor_type: string
-  team_name: string
-  total_points: number
-}
-
 type Task = {
   id: string
   title: string
@@ -35,6 +25,8 @@ type Task = {
   extension_granted: boolean
   extended_deadline_at: string | null
   created_at: string
+  primitives: string[] | null
+  links: { label: string; url: string }[] | null
 }
 
 
@@ -49,6 +41,15 @@ const CATEGORY_COLOURS: Record<string, string> = {
 const CATEGORIES = ['technical', 'design', 'community', 'research', 'operations']
 const COMPLEXITIES = ['small', 'medium', 'large']
 const STATUS_OPTIONS = ['all', 'open', 'assigned', 'completed']
+
+const PRIMITIVES = [
+  { value: 'trust', label: 'Trust Primitive' },
+  { value: 'identity', label: 'Identity Primitive' },
+  { value: 'reputation', label: 'Reputation Primitive' },
+  { value: 'governance', label: 'Governance Primitive' },
+  { value: 'intelligence', label: 'Market Intelligence Primitive' },
+  { value: 'distribution', label: 'Distribution Primitive' },
+]
 
 const DEADLINE_DAYS: Record<string, number> = {
   small: 3, medium: 6, large: 12,
@@ -65,7 +66,6 @@ const POINT_RANGES: Record<string, Record<string, [number, number]>> = {
 function TasksContent() {
   const searchParams = useSearchParams()
   const [tasks, setTasks] = useState<Task[]>([])
-  const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(searchParams.get('filter') ?? 'all')
   const [search, setSearch] = useState('')
@@ -81,6 +81,8 @@ function TasksContent() {
     description: '',
     category: 'technical',
     complexity: 'medium',
+    primitives: [] as string[],
+    links: [] as { label: string; url: string }[],
   })
 
 
@@ -101,17 +103,7 @@ function TasksContent() {
   }
 
   useEffect(() => {
-    async function fetchContributors() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('contributors')
-        .select('id, name, email, categories, contributor_type, team_name, total_points')
-        .eq('status', 'active')
-        .order('name', { ascending: true })
-      if (data) setContributors(data)
-    }
     fetchTasks()
-    fetchContributors()
   }, [filter])
 
   useEffect(() => {
@@ -121,6 +113,8 @@ function TasksContent() {
         description: selected.description,
         category: selected.category,
         complexity: selected.complexity,
+        primitives: selected.primitives ?? [],
+        links: selected.links ?? [],
       })
     }
   }, [selected])
@@ -136,6 +130,8 @@ function TasksContent() {
 
     const range = POINT_RANGES[editForm.category]?.[editForm.complexity]
 
+    const validLinks = editForm.links.filter(l => l.url.trim() !== '')
+
     const { error } = await supabase
       .from('tasks')
       .update({
@@ -146,6 +142,8 @@ function TasksContent() {
         point_range_min: range?.[0] ?? selected.point_range_min,
         point_range_max: range?.[1] ?? selected.point_range_max,
         deadline_days: DEADLINE_DAYS[editForm.complexity],
+        primitives: editForm.primitives.length > 0 ? editForm.primitives : null,
+        links: validLinks.length > 0 ? validLinks : null,
       })
       .eq('id', selected.id)
 
@@ -493,6 +491,125 @@ function TasksContent() {
                   </select>
                 </div>
               </div>
+              {/* Protocol primitives */}
+              <div>
+                <label style={labelStyle}>Protocol primitives</label>
+                <div
+                  className="flex flex-col gap-1 p-2 rounded-lg"
+                  style={{ background: '#0D0B14', border: '1px solid #1C1730' }}
+                >
+                  {PRIMITIVES.map(p => {
+                    const isSelected = editForm.primitives.includes(p.value)
+                    return (
+                      <label
+                        key={p.value}
+                        className="flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer"
+                        style={{
+                          background: isSelected ? 'rgba(109,40,217,0.08)' : 'transparent',
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 16,
+                            height: 16,
+                            borderRadius: 4,
+                            border: `2px solid ${isSelected ? '#6D28D9' : '#2D2450'}`,
+                            background: isSelected ? '#6D28D9' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {isSelected && (
+                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                              <path d="M1 4l2 2 4-4" />
+                            </svg>
+                          )}
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            const updated = isSelected
+                              ? editForm.primitives.filter(v => v !== p.value)
+                              : [...editForm.primitives, p.value]
+                            setEditForm({ ...editForm, primitives: updated })
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                        <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: isSelected ? '#A78BFA' : '#8B7EC8' }}>
+                          {p.label}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+                {editForm.primitives.length > 0 && (
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', marginTop: 4 }}>
+                    {editForm.primitives.length} primitive{editForm.primitives.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
+              </div>
+
+              {/* Links and repositories */}
+              <div>
+                <label style={labelStyle}>Links and repositories</label>
+                <div className="flex flex-col gap-2">
+                  {editForm.links.map((link, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Label"
+                        value={link.label}
+                        onChange={(e) => {
+                          const updated = [...editForm.links]
+                          updated[i] = { ...updated[i], label: e.target.value }
+                          setEditForm({ ...editForm, links: updated })
+                        }}
+                        style={{ ...inputStyle, flex: 1 }}
+                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                      />
+                      <input
+                        type="url"
+                        placeholder="https://github.com/..."
+                        value={link.url}
+                        onChange={(e) => {
+                          const updated = [...editForm.links]
+                          updated[i] = { ...updated[i], url: e.target.value }
+                          setEditForm({ ...editForm, links: updated })
+                        }}
+                        style={{ ...inputStyle, flex: 2 }}
+                        onFocus={(e) => (e.target.style.borderColor = '#6D28D9')}
+                        onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = editForm.links.filter((_, idx) => idx !== i)
+                          setEditForm({ ...editForm, links: updated })
+                        }}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', cursor: 'pointer', fontFamily: 'Switzer, sans-serif', fontSize: 12, flexShrink: 0 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, links: [...editForm.links, { label: '', url: '' }] })}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #1C1730', background: 'transparent', color: '#8B7EC8', cursor: 'pointer', fontFamily: 'Switzer, sans-serif', fontSize: 12, textAlign: 'left', transition: 'all 0.2s' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#6D28D9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1C1730')}
+                  >
+                    + Add link
+                  </button>
+                </div>
+              </div>
+
               <div className="p-3 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8' }}>
                   Point range: <span style={{ color: '#A78BFA', fontWeight: 600 }}>
