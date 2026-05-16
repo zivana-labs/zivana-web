@@ -14,7 +14,7 @@ type Task = {
   point_range_max: number
   status: string
   deadline_days: number | null
-  primitive: string | null
+  primitives: string[] | null
   links: { label: string; url: string }[] | null
   created_at: string
 }
@@ -50,7 +50,7 @@ export default function TasksPage() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('tasks')
-        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitive, links, created_at')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitives, links, created_at')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 

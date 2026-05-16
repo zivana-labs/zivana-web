@@ -17,7 +17,7 @@ type Task = {
   point_range_max: number
   status: string
   deadline_days: number | null
-  primitive: string | null
+  primitives: string[] | null
   links: { label: string; url: string }[] | null
   created_at: string
 }
@@ -42,6 +42,7 @@ const PRIMITIVE_COLOURS: Record<string, string> = {
   reputation:   '#FCD34D',
   governance:   '#A78BFA',
   intelligence: '#C084FC',
+  distribution: '#F9A8D4',
 }
 
 function PortalTaskDetailContent() {
@@ -88,7 +89,7 @@ function PortalTaskDetailContent() {
 
       const { data: taskData, error } = await publicClient
         .from('tasks')
-        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitive, links, created_at')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitives, links, created_at')
         .eq('id', taskId)
         .single()
 
@@ -237,11 +238,11 @@ function PortalTaskDetailContent() {
           <span style={{ padding: '3px 12px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             {task!.complexity}
           </span>
-          {task!.primitive && (
-            <span style={{ padding: '3px 12px', borderRadius: 20, background: (PRIMITIVE_COLOURS[task!.primitive.toLowerCase()] ?? '#A78BFA') + '15', color: PRIMITIVE_COLOURS[task!.primitive.toLowerCase()] ?? '#A78BFA', border: `1px solid ${PRIMITIVE_COLOURS[task!.primitive.toLowerCase()] ?? '#A78BFA'}30`, fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              {task!.primitive} primitive
+          {task!.primitives?.map(p => (
+            <span key={p} style={{ padding: '3px 12px', borderRadius: 20, background: (PRIMITIVE_COLOURS[p.toLowerCase()] ?? '#A78BFA') + '15', color: PRIMITIVE_COLOURS[p.toLowerCase()] ?? '#A78BFA', border: `1px solid ${PRIMITIVE_COLOURS[p.toLowerCase()] ?? '#A78BFA'}30`, fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              {p} primitive
             </span>
-          )}
+          ))}
         </div>
 
         {/* Title */}
