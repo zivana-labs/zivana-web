@@ -513,9 +513,19 @@ function DashboardContent() {
           .from('contributions')
           .select('*')
           .eq('contributor_id', contributorData.id)
-          .order('created_at', { ascending: false })
+          .order('updated_at', { ascending: false, nullsFirst: false })
 
-        if (contribData) setContributions(contribData)
+        if (contribData) {
+          // Deduplicate by title+category — keep the most recent submission only
+          const seen = new Set<string>()
+          const deduped = contribData.filter(c => {
+            const key = `${c.title.trim().toLowerCase()}__${c.category}`
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+          setContributions(deduped)
+        }
 
         const { data: claimedData } = await supabase
           .from('tasks')
@@ -765,8 +775,17 @@ function DashboardContent() {
       .from('contributions')
       .select('*')
       .eq('contributor_id', contributor.id)
-      .order('created_at', { ascending: false })
-    if (data) setContributions(data)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+    if (data) {
+      const seen = new Set<string>()
+      const deduped = data.filter(c => {
+        const key = `${c.title.trim().toLowerCase()}__${c.category}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      setContributions(deduped)
+    }
 
     setSubmitting(false)
   }
