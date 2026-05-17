@@ -478,6 +478,7 @@ function DashboardContent() {
     evidence_url: '',
   })
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [reviewResult, setReviewResult] = useState<string | null>(null)
   const [reviewFeedback, setReviewFeedback] = useState<Record<string, unknown> | null>(null)
@@ -607,35 +608,84 @@ function DashboardContent() {
     const final_points = Math.round(base_points * timing_multiplier)
     const submitted_at = new Date().toISOString()
 
-    // Count previous submissions for this contribution to track resubmissions
-    const { count: previousSubmissions } = await supabase
+    // Block resubmission if already verified
+    const { data: verified } = await supabase
       .from('contributions')
-      .select('*', { count: 'exact', head: true })
-      .eq('contributor_id', contributor.id)
-      .eq('category', form.category)
-      .eq('title', form.title.trim())
-
-    const submission_count = (previousSubmissions ?? 0) + 1
-
-    // Insert the contribution record first
-    const { data: insertedContribution, error } = await supabase
-      .from('contributions')
-      .insert({
-        contributor_id: contributor.id,
-        title: form.title,
-        description: form.description,
-        category: form.category,
-        complexity: form.complexity,
-        base_points,
-        final_points,
-        timing_multiplier,
-        deadline_at,
-        evidence_url: form.evidence_url || null,
-        status: 'submitted',
-        submission_count,
-      })
       .select('id')
+      .eq('contributor_id', contributor.id)
+      .eq('title', form.title.trim())
+      .eq('category', form.category)
+      .eq('status', 'verified')
       .single()
+
+    if (verified) {
+      setSubmitting(false)
+      setSubmitError('This contribution has already been verified. You cannot resubmit verified work.')
+      return
+    }
+
+    // Check for existing submission with same title and category — update instead of insert
+    const { data: existing } = await supabase
+      .from('contributions')
+      .select('id, submission_count')
+      .eq('contributor_id', contributor.id)
+      .eq('title', form.title.trim())
+      .eq('category', form.category)
+      .in('status', ['submitted', 'under_review', 'rejected'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    const submission_count = existing
+      ? (existing.submission_count ?? 1) + 1
+      : 1
+
+    let insertedContribution: { id: string } | null = null
+    let error = null
+
+    if (existing) {
+      // Update existing record — do not create a duplicate
+      const { data: updated, error: updateError } = await supabase
+        .from('contributions')
+        .update({
+          description: form.description,
+          complexity: form.complexity,
+          base_points,
+          final_points,
+          timing_multiplier,
+          deadline_at,
+          evidence_url: form.evidence_url || null,
+          status: 'submitted',
+          submission_count: (existing.submission_count ?? 1) + 1,
+        })
+        .eq('id', existing.id)
+        .select('id')
+        .single()
+      insertedContribution = updated
+      error = updateError
+    } else {
+      // Insert new record
+      const { data: inserted, error: insertError } = await supabase
+        .from('contributions')
+        .insert({
+          contributor_id: contributor.id,
+          title: form.title.trim(),
+          description: form.description,
+          category: form.category,
+          complexity: form.complexity,
+          base_points,
+          final_points,
+          timing_multiplier,
+          deadline_at,
+          evidence_url: form.evidence_url || null,
+          status: 'submitted',
+          submission_count: 1,
+        })
+        .select('id')
+        .single()
+      insertedContribution = inserted
+      error = insertError
+    }
 
     if (error || !insertedContribution) {
       setSubmitting(false)
@@ -671,26 +721,19 @@ function DashboardContent() {
           reviewDecision = reviewResult.decision
           reviewFeedbackData = reviewResult.feedback
 
-          // Update the contribution with the review result
-          const newStatus = reviewResult.decision === 'approved'
-            ? 'verified'
-            : reviewResult.decision === 'human_required'
-            ? 'submitted'
-            : 'rejected'
-
-          await supabase
-            .from('contributions')
-            .update({
+          // Save review result via server-side route — bypasses RLS
+          await fetch('/api/review/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contribution_id: insertedContribution.id,
               review_decision: reviewResult.decision,
               review_score: reviewResult.overall_score,
               review_feedback: reviewResult.feedback,
-              status: newStatus,
-              ...(newStatus === 'verified' && {
-                final_points: Math.round(base_points * timing_multiplier),
-                verified_at: new Date().toISOString(),
-              }),
-            })
-            .eq('id', insertedContribution.id)
+              base_points,
+              timing_multiplier,
+            }),
+          })
         }
       } catch (reviewErr) {
         // Review service failure is non-fatal — contribution stays as submitted
@@ -1035,12 +1078,12 @@ function DashboardContent() {
           <div className="flex flex-col gap-6">
             {submitSuccess && (
   <div className="flex flex-col gap-4 p-6 rounded-2xl border" style={{
-    background: reviewResult === 'approved'
+    background: reviewResult === 'ai_approved'
       ? 'rgba(15,118,110,0.08)'
       : reviewResult === 'rejected'
       ? 'rgba(109,40,217,0.06)'
       : '#13101E',
-    borderColor: reviewResult === 'approved'
+    borderColor: reviewResult === 'ai_approved'
       ? 'rgba(15,118,110,0.25)'
       : reviewResult === 'rejected'
       ? 'rgba(109,40,217,0.2)'
@@ -1048,7 +1091,7 @@ function DashboardContent() {
   }}>
     {/* Icon */}
     <div className="flex items-center gap-3">
-      {reviewResult === 'approved' ? (
+      {reviewResult === 'ai_approved' ? (
         <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(15,118,110,0.12)', border: '1px solid rgba(15,118,110,0.25)' }}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 9l4 4L15 4" />
@@ -1071,15 +1114,15 @@ function DashboardContent() {
       )}
       <div>
         <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
-          {reviewResult === 'approved'
-            ? 'Contribution approved'
+          {reviewResult === 'ai_approved'
+            ? 'AI pre-approved'
             : reviewResult === 'rejected'
             ? 'Contribution needs work'
             : 'Contribution submitted'}
         </p>
         <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 2 }}>
-          {reviewResult === 'approved'
-            ? 'Your contribution has been automatically verified. Points have been awarded.'
+          {reviewResult === 'ai_approved'
+            ? 'Your contribution passed automated review. The core team will do a final check before awarding points.'
             : reviewResult === 'rejected'
             ? 'The automated review flagged some issues. See the feedback below.'
             : 'Your contribution is under review by the core team.'}
@@ -1129,7 +1172,7 @@ function DashboardContent() {
             {/* Quick actions */}
             <div className="grid sm:grid-cols-2 gap-4">
               <button
-                onClick={() => setShowForm(true)}
+                onClick={() => { setShowForm(true); setSubmitError('') }}
                 className="flex flex-col gap-3 p-6 rounded-2xl border text-left"
                 style={{
                   background: 'linear-gradient(135deg,#13101E,#160F2A)',
@@ -1352,6 +1395,7 @@ function DashboardContent() {
                               onClick={() => {
                                 setForm({ title: task.title, description: '', category: task.category, complexity: task.complexity, evidence_url: '' })
                                 setShowForm(true)
+                                setSubmitError('')
                               }}
                               className="btn-primary"
                               style={{ fontSize: 11, padding: '7px 14px' }}
@@ -1405,7 +1449,7 @@ function DashboardContent() {
                 {contributions.length} submission{contributions.length !== 1 ? 's' : ''}
               </p>
               <button
-                onClick={() => setShowForm(true)}
+                onClick={() => { setShowForm(true); setSubmitError('') }}
                 className="btn-primary"
                 style={{ fontSize: 12, padding: '8px 18px' }}
               >
@@ -1423,7 +1467,7 @@ function DashboardContent() {
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontWeight: 300, fontSize: 13, color: '#8B7EC8', marginBottom: 16 }}>
                   Submit your first contribution to start earning points
                 </p>
-                <button onClick={() => setShowForm(true)} className="btn-primary" style={{ fontSize: 12 }}>
+                <button onClick={() => { setShowForm(true); setSubmitError('') }} className="btn-primary" style={{ fontSize: 12 }}>
                   Submit contribution
                 </button>
               </div>
@@ -1656,6 +1700,12 @@ function DashboardContent() {
                     onBlur={(e) => (e.target.style.borderColor = '#1C1730')}
                   />
                 </div>
+
+                {submitError && (
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5', lineHeight: 1.6 }}>
+                    {submitError}
+                  </p>
+                )}
 
                 <div className="flex gap-3 mt-2">
                   <button

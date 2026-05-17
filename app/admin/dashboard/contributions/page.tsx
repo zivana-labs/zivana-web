@@ -18,6 +18,10 @@ type Contribution = {
   notes: string | null
   created_at: string
   contributor_id: string
+  review_decision: string | null
+  review_score: number | null
+  review_feedback: Record<string, unknown> | null
+  submission_count: number | null
   contributors: {
     name: string
     email: string
@@ -33,10 +37,11 @@ const CATEGORY_COLOURS: Record<string, string> = {
   operations: '#A78BFA',
 }
 
-const STATUS_OPTIONS = ['all', 'submitted', 'under_review', 'verified', 'rejected']
+const STATUS_OPTIONS = ['all', 'submitted', 'ai_approved', 'under_review', 'verified', 'rejected']
 
 const STATUS_COLOURS: Record<string, { bg: string; text: string; border: string }> = {
   submitted:    { bg: 'rgba(92,64,20,0.15)',   text: '#FCD34D', border: 'rgba(92,64,20,0.3)' },
+  ai_approved:  { bg: 'rgba(14,165,233,0.12)', text: '#7DD3FC', border: 'rgba(14,165,233,0.25)' },
   under_review: { bg: 'rgba(28,95,138,0.15)',  text: '#7DD3FC', border: 'rgba(28,95,138,0.3)' },
   verified:     { bg: 'rgba(15,118,110,0.15)', text: '#5EEAD4', border: 'rgba(15,118,110,0.3)' },
   rejected:     { bg: 'rgba(127,29,29,0.15)',  text: '#FCA5A5', border: 'rgba(127,29,29,0.3)' },
@@ -72,7 +77,7 @@ function ContributionsContent() {
         *,
         contributors (name, email, categories)
       `)
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false, nullsFirst: false })
 
     if (filter !== 'all') {
       query = query.eq('status', filter)
@@ -267,7 +272,7 @@ function ContributionsContent() {
                 transition: 'all 0.2s',
               }}
             >
-              {s.replace('_', ' ')}
+              {s === 'ai_approved' ? 'AI Approved' : s.replace('_', ' ')}
             </button>
           ))}
         </div>
@@ -456,6 +461,145 @@ function ContributionsContent() {
                 </div>
               )}
 
+              {/* AI review decision */}
+              {selected.review_decision && (
+                <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{
+                  background: selected.review_decision === 'approved'
+                    ? 'rgba(15,118,110,0.06)'
+                    : selected.review_decision === 'human_required'
+                    ? 'rgba(234,179,8,0.06)'
+                    : 'rgba(109,40,217,0.06)',
+                  borderColor: selected.review_decision === 'approved'
+                    ? 'rgba(15,118,110,0.2)'
+                    : selected.review_decision === 'human_required'
+                    ? 'rgba(234,179,8,0.2)'
+                    : 'rgba(109,40,217,0.2)',
+                }}>
+                  {/* Header row */}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span style={{
+                        fontFamily: 'Switzer, sans-serif',
+                        fontSize: 10,
+                        fontWeight: 500,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: '#6B5FA0',
+                      }}>
+                        AI Review
+                      </span>
+                      <span style={{
+                        padding: '2px 10px',
+                        borderRadius: 20,
+                        fontFamily: 'Switzer, sans-serif',
+                        fontSize: 10,
+                        fontWeight: 500,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        background: selected.review_decision === 'approved'
+                          ? 'rgba(15,118,110,0.15)'
+                          : selected.review_decision === 'human_required'
+                          ? 'rgba(234,179,8,0.15)'
+                          : 'rgba(109,40,217,0.12)',
+                        color: selected.review_decision === 'approved'
+                          ? '#5EEAD4'
+                          : selected.review_decision === 'human_required'
+                          ? '#FCD34D'
+                          : '#A78BFA',
+                      }}>
+                        {selected.review_decision === 'human_required' ? 'Human required' : selected.review_decision}
+                      </span>
+                    </div>
+                    {selected.review_score !== null && selected.review_score !== undefined && (
+                      <div className="flex items-center gap-2">
+                        <div style={{ width: 80, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${selected.review_score}%`,
+                            background: selected.review_score >= 80
+                              ? '#5EEAD4'
+                              : selected.review_score >= 50
+                              ? '#FCD34D'
+                              : '#A78BFA',
+                            borderRadius: 3,
+                            transition: 'width 0.6s ease',
+                          }} />
+                        </div>
+                        <span style={{
+                          fontFamily: 'Cabinet Grotesk, sans-serif',
+                          fontWeight: 600,
+                          fontSize: 14,
+                          color: selected.review_score >= 80 ? '#5EEAD4' : selected.review_score >= 50 ? '#FCD34D' : '#A78BFA',
+                        }}>
+                          {selected.review_score}/100
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submission count */}
+                  {selected.submission_count && selected.submission_count > 1 && (
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
+                      Submission {selected.submission_count} of 3
+                    </p>
+                  )}
+
+                  {/* AI feedback summary */}
+                  {selected.review_feedback && (selected.review_feedback as any).summary && (
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
+                      {(selected.review_feedback as any).summary}
+                    </p>
+                  )}
+
+                  {/* Issues */}
+                  {selected.review_feedback && Array.isArray((selected.review_feedback as any).issues) && (selected.review_feedback as any).issues.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {((selected.review_feedback as any).issues as { check: string; message: string }[]).map((issue, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 5, flexShrink: 0 }} />
+                          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>
+                            {issue.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Checks breakdown */}
+                  {selected.review_feedback && (selected.review_feedback as any).checks && (
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      {Object.entries((selected.review_feedback as any).checks as Record<string, boolean>).map(([check, passed]) => (
+                        <div key={check} className="flex items-center gap-2">
+                          <div style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: passed ? '#5EEAD4' : '#A78BFA',
+                            flexShrink: 0,
+                          }} />
+                          <span style={{
+                            fontFamily: 'Switzer, sans-serif',
+                            fontSize: 10,
+                            color: passed ? '#5EEAD4' : '#8B7EC8',
+                            textTransform: 'capitalize',
+                          }}>
+                            {check.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* What to do */}
+                  {selected.review_feedback && (selected.review_feedback as any).what_to_do && (
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.65, paddingTop: 8, borderTop: '1px solid #1C1730' }}>
+                      <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
+                      {(selected.review_feedback as any).what_to_do}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Timing multiplier */}
               {selected.timing_multiplier !== 1.0 && (
                 <div className="p-4 rounded-xl border" style={{ background: selected.timing_multiplier > 1 ? 'rgba(15,118,110,0.08)' : 'rgba(239,68,68,0.08)', borderColor: selected.timing_multiplier > 1 ? 'rgba(15,118,110,0.2)' : 'rgba(239,68,68,0.2)' }}>
@@ -466,7 +610,7 @@ function ContributionsContent() {
               )}
 
               {/* Points input */}
-              {(selected.status === 'submitted' || selected.status === 'under_review') && (
+              {(selected.status === 'submitted' || selected.status === 'under_review' || selected.status === 'ai_approved') && (
                 <div>
                   <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
                     Base points {range ? `(range: ${range[0]}–${range[1]})` : ''}
@@ -503,7 +647,7 @@ function ContributionsContent() {
               {/* Review notes */}
               <div>
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                  Review notes {selected.status === 'submitted' || selected.status === 'under_review' ? '(required for rejection)' : ''}
+                  Review notes {selected.status === 'submitted' || selected.status === 'under_review' || selected.status === 'ai_approved' ? '(required for rejection)' : ''}
                 </p>
                 <textarea
                   value={reviewNotes}
@@ -530,7 +674,7 @@ function ContributionsContent() {
 
             {/* Actions */}
             <div className="p-6 border-t flex flex-wrap gap-3" style={{ borderColor: '#1C1730' }}>
-              {(selected.status === 'submitted' || selected.status === 'under_review') && (
+              {(selected.status === 'submitted' || selected.status === 'under_review' || selected.status === 'ai_approved') && (
                 <>
                   <button
                     onClick={handleVerify}
