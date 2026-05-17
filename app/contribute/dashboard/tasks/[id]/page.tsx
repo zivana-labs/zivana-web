@@ -16,6 +16,7 @@ type Task = {
   point_range_min: number
   point_range_max: number
   status: string
+  assigned_to: string | null
   deadline_days: number | null
   primitives: string[] | null
   links: { label: string; url: string }[] | null
@@ -89,7 +90,7 @@ function PortalTaskDetailContent() {
 
       const { data: taskData, error } = await publicClient
         .from('tasks')
-        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitives, links, created_at')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, assigned_to, deadline_days, primitives, links, created_at')
         .eq('id', taskId)
         .single()
 
@@ -99,7 +100,11 @@ function PortalTaskDetailContent() {
         return
       }
 
-      if (taskData.status !== 'open') {
+      // Allow open tasks and assigned tasks owned by this contributor
+      const isOpen = taskData.status === 'open'
+      const isAssignedToMe = taskData.status === 'assigned' && contributorData?.id === taskData.assigned_to
+
+      if (!isOpen && !isAssignedToMe) {
         setNotFound(true)
         setLoading(false)
         return
@@ -314,7 +319,16 @@ function PortalTaskDetailContent() {
               {claimError}
             </p>
           )}
-          {maxReached ? (
+          {task!.status === 'assigned' && task!.assigned_to === contributor?.id ? (
+            <div className="flex flex-col gap-3">
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
+                You have already claimed this task. Go to your dashboard to submit your work.
+              </p>
+              <Link href="/contribute/dashboard" className="btn-primary" style={{ fontSize: 13 }}>
+                Go to dashboard
+              </Link>
+            </div>
+          ) : maxReached ? (
             <div className="flex flex-col gap-3">
               <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
                 You have reached your maximum of {contributor?.max_claims} active claims. Complete or unclaim an existing task first.

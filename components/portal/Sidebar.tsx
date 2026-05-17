@@ -20,6 +20,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: 'My tasks',
+    href: '/contribute/dashboard?tab=tasks',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <rect x="2" y="2" width="12" height="12" rx="2" />
+        <path d="M5 8l2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
     label: 'Tasks',
     href: '/contribute/dashboard/tasks',
     icon: (
@@ -59,24 +69,16 @@ const NAV_ITEMS = [
   },
 ]
 
-function SidebarContent() {
+function SidebarPane({ onClose, onSignOut }: { onClose: () => void; onSignOut: () => void }) {
   const pathname = usePathname()
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const [mobileOpen, setMobileOpen] = useState(false)
 
-  async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/contribute/signin')
-  }
-
-  const SidebarContent = () => (
+  return (
     <div className="flex flex-col h-full">
 
       {/* Logo */}
       <div className="px-6 py-6 border-b" style={{ borderColor: '#1C1730' }}>
-        <Link href="/" onClick={() => setMobileOpen(false)}>
+        <Link href="/" onClick={onClose}>
           <Logo config="horizontal" size={0.62} />
         </Link>
       </div>
@@ -94,11 +96,12 @@ function SidebarContent() {
               : item.href === '/contribute/dashboard'
               ? pathname === '/contribute/dashboard' && !currentTab
               : pathname.startsWith(itemPath)
+
             return (
               <li key={item.label}>
                 <Link
                   href={item.href}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={onClose}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                   style={{
                     background: isActive ? 'rgba(109,40,217,0.12)' : 'transparent',
@@ -149,7 +152,7 @@ function SidebarContent() {
           <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13 }}>Back to site</span>
         </Link>
         <button
-          onClick={handleSignOut}
+          onClick={onSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl w-full"
           style={{
             color: '#8B7EC8',
@@ -178,6 +181,17 @@ function SidebarContent() {
       </div>
     </div>
   )
+}
+
+function SidebarInner() {
+  const router = useRouter()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/contribute/signin')
+  }
 
   return (
     <>
@@ -190,7 +204,7 @@ function SidebarContent() {
           borderRight: '1px solid #1C1730',
         }}
       >
-        <SidebarContent />
+        <SidebarPane onClose={() => setMobileOpen(false)} onSignOut={handleSignOut} />
       </aside>
 
       {/* Mobile top bar */}
@@ -231,7 +245,7 @@ function SidebarContent() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <SidebarContent />
+            <SidebarPane onClose={() => setMobileOpen(false)} onSignOut={handleSignOut} />
           </div>
         </div>
       )}
@@ -254,7 +268,7 @@ export default function Sidebar() {
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>
-      <SidebarContent />
+      <SidebarInner />
     </Suspense>
   )
 }

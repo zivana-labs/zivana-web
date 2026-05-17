@@ -15,6 +15,15 @@ type Contributor = {
   verified_contributions: number
 }
 
+type ContributionRecord = {
+  id: string
+  title: string
+  category: string
+  complexity: string
+  final_points: number
+  verified_at: string
+}
+
 const CATEGORY_COLOURS: Record<string, string> = {
   technical:  '#7DD3FC',
   design:     '#C084FC',
@@ -29,6 +38,9 @@ export default function LeaderboardPage() {
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState<string>('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [contributionMap, setContributionMap] = useState<Record<string, ContributionRecord[]>>({})
+  const [loadingContributions, setLoadingContributions] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchContributors() {
@@ -44,6 +56,31 @@ export default function LeaderboardPage() {
     }
     fetchContributors()
   }, [])
+
+  async function fetchContributions(contributorId: string) {
+    if (contributionMap[contributorId]) return
+    setLoadingContributions(contributorId)
+    const supabase = createPublicClient()
+    const { data } = await supabase
+      .from('contributions')
+      .select('id, title, category, complexity, final_points, verified_at')
+      .eq('contributor_id', contributorId)
+      .eq('status', 'verified')
+      .order('verified_at', { ascending: false })
+    if (data) {
+      setContributionMap(prev => ({ ...prev, [contributorId]: data }))
+    }
+    setLoadingContributions(null)
+  }
+
+  function handleExpand(contributorId: string) {
+    if (expandedId === contributorId) {
+      setExpandedId(null)
+    } else {
+      setExpandedId(contributorId)
+      fetchContributions(contributorId)
+    }
+  }
 
   const filtered = contributors.filter((c) =>
     category === 'all' || c.categories?.includes(category)
@@ -204,158 +241,137 @@ export default function LeaderboardPage() {
                 : 4
 
               return (
-                <div
-                  key={c.id}
-                  className="relative flex items-center gap-5 p-5 rounded-2xl border overflow-hidden"
-                  style={{
-                    background: isTop3
-                      ? 'linear-gradient(135deg,#13101E,#160F2A)'
-                      : '#13101E',
-                    borderColor: isTop3 ? color + '30' : '#1C1730',
-                    opacity: 0,
-                    animation: `fadeUp 0.5s ease forwards ${i * 60}ms`,
-                  }}
-                >
-                  {/* Points bar background */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: `${barWidth}%`,
-                      background: `linear-gradient(90deg,${color}08,transparent)`,
-                      pointerEvents: 'none',
-                      transition: 'width 1s ease',
-                    }}
-                  />
+                <div key={c.id} className="flex flex-col rounded-2xl border overflow-hidden" style={{
+                  background: isTop3 ? 'linear-gradient(135deg,#13101E,#160F2A)' : '#13101E',
+                  borderColor: isTop3 ? color + '30' : '#1C1730',
+                  opacity: 0,
+                  animation: `fadeUp 0.5s ease forwards ${i * 60}ms`,
+                }}>
+                  {/* Main card row */}
+                  <div className="relative flex items-center gap-5 p-5 overflow-hidden">
+                    {/* Points bar background */}
+                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, background: `linear-gradient(90deg,${color}08,transparent)`, pointerEvents: 'none', transition: 'width 1s ease' }} />
 
-                  {/* Rank */}
-                  <div
-                    className="flex-shrink-0 flex items-center justify-center"
-                    style={{ width: 36 }}
-                  >
-                    {isTop3 ? (
-                      <span style={{ fontSize: 20 }}>{MEDALS[i]}</span>
-                    ) : (
-                      <span
-                        style={{
-                          fontFamily: 'Cabinet Grotesk, sans-serif',
-                          fontWeight: 600,
-                          fontSize: 14,
-                          color: '#6B5FA0',
-                        }}
-                      >
-                        {i + 1}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Avatar placeholder */}
-                  <div
-                    className="flex-shrink-0 flex items-center justify-center rounded-full"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: color + '18',
-                      border: `1px solid ${color}35`,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: 'Cabinet Grotesk, sans-serif',
-                        fontWeight: 600,
-                        fontSize: 16,
-                        color: color,
-                      }}
-                    >
-                      {c.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span
-                        style={{
-                          fontFamily: 'Cabinet Grotesk, sans-serif',
-                          fontWeight: 600,
-                          fontSize: 15,
-                          color: '#E8E6F0',
-                        }}
-                      >
-                        {c.contributor_type === 'team' && c.team_name
-                          ? c.team_name
-                          : c.name}
-                      </span>
-                      {c.contributor_type === 'team' && (
-                        <span
-                          style={{
-                            padding: '2px 8px',
-                            borderRadius: 20,
-                            background: '#1E1640',
-                            color: '#6B5FA0',
-                            fontFamily: 'Switzer, sans-serif',
-                            fontSize: 9,
-                            letterSpacing: '0.1em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Team
-                        </span>
-                      )}
-                      {c.categories?.map((cat) => {
-                        const catColor = CATEGORY_COLOURS[cat] ?? '#A78BFA'
-                        return (
-                          <span
-                            key={cat}
-                            style={{
-                              padding: '2px 8px',
-                              borderRadius: 20,
-                              background: catColor + '15',
-                              color: catColor,
-                              border: `1px solid ${catColor}30`,
-                              fontFamily: 'Switzer, sans-serif',
-                              fontSize: 9,
-                              letterSpacing: '0.1em',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            {cat}
-                          </span>
-                        )
-                      })}
+                    {/* Rank */}
+                    <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36 }}>
+                      {isTop3
+                        ? <span style={{ fontSize: 20 }}>{MEDALS[i]}</span>
+                        : <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#6B5FA0' }}>{i + 1}</span>
+                      }
                     </div>
-                    <div className="flex items-center gap-4">
-                      {c.location && (
+
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 flex items-center justify-center rounded-full" style={{ width: 44, height: 44, background: color + '18', border: `1px solid ${color}35` }}>
+                      <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color }}>{c.name.charAt(0).toUpperCase()}</span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
+                          {c.contributor_type === 'team' && c.team_name ? c.team_name : c.name}
+                        </span>
+                        {c.contributor_type === 'team' && (
+                          <span style={{ padding: '2px 8px', borderRadius: 20, background: '#1E1640', color: '#6B5FA0', fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Team</span>
+                        )}
+                        {c.categories?.map((cat) => {
+                          const catColor = CATEGORY_COLOURS[cat] ?? '#A78BFA'
+                          return (
+                            <span key={cat} style={{ padding: '2px 8px', borderRadius: 20, background: catColor + '15', color: catColor, border: `1px solid ${catColor}30`, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{cat}</span>
+                          )
+                        })}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {c.location && <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}>{c.location}</span>}
                         <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}>
-                          {c.location}
+                          {c.verified_contributions} contribution{c.verified_contributions !== 1 ? 's' : ''}
                         </span>
-                      )}
-                      <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8' }}>
-                        {c.verified_contributions} contribution{c.verified_contributions !== 1 ? 's' : ''}
-                      </span>
+                      </div>
+                    </div>
+
+                    {/* Points and expand */}
+                    <div className="flex-shrink-0 flex items-center gap-4">
+                      <div className="text-right">
+                        <div style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 22, color, letterSpacing: '-0.02em', lineHeight: 1 }}>
+                          {c.total_points.toLocaleString()}
+                        </div>
+                        <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8', marginTop: 2 }}>points</div>
+                      </div>
+                      <button
+                        onClick={() => handleExpand(c.id)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: '50%',
+                          border: '1px solid #1C1730',
+                          background: expandedId === c.id ? 'rgba(109,40,217,0.15)' : 'transparent',
+                          color: expandedId === c.id ? '#A78BFA' : '#6B5FA0',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.2s',
+                        }}
+                        title={expandedId === c.id ? 'Collapse' : 'View contributions'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          {expandedId === c.id
+                            ? <path d="M2 8l4-4 4 4" />
+                            : <path d="M2 4l4 4 4-4" />
+                          }
+                        </svg>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Points */}
-                  <div className="flex-shrink-0 text-right">
-                    <div
-                      style={{
-                        fontFamily: 'Cabinet Grotesk, sans-serif',
-                        fontWeight: 600,
-                        fontSize: 22,
-                        color: color,
-                        letterSpacing: '-0.02em',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {c.total_points.toLocaleString()}
+                  {/* Expanded contributions */}
+                  {expandedId === c.id && (
+                    <div className="border-t px-5 py-4 flex flex-col gap-3" style={{ borderColor: '#1C1730', background: 'rgba(0,0,0,0.15)' }}>
+                      {loadingContributions === c.id ? (
+                        <div className="flex items-center gap-2">
+                          <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #1C1730', borderTop: '2px solid #6D28D9', animation: 'spin 0.8s linear infinite' }} />
+                          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0' }}>Loading contributions...</span>
+                        </div>
+                      ) : contributionMap[c.id]?.length === 0 ? (
+                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0' }}>No verified contributions yet.</p>
+                      ) : (
+                        <>
+                          <div className="flex flex-col gap-2">
+                            {contributionMap[c.id]?.map(contrib => {
+                              const catColor = CATEGORY_COLOURS[contrib.category] ?? '#A78BFA'
+                              return (
+                                <div key={contrib.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
+                                  <div className="flex-1 min-w-0">
+                                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, fontWeight: 500, color: '#E8E6F0', marginBottom: 3 }}>{contrib.title}</p>
+                                    <div className="flex items-center gap-2">
+                                      <span style={{ padding: '1px 6px', borderRadius: 10, background: catColor + '15', color: catColor, fontFamily: 'Switzer, sans-serif', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{contrib.category}</span>
+                                      <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#6B5FA0', textTransform: 'capitalize' }}>{contrib.complexity}</span>
+                                      <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#6B5FA0' }}>
+                                        {new Date(contrib.verified_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color, flexShrink: 0 }}>
+                                    {contrib.final_points} pts
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <Link
+                            href={`/contribute/contributors/${c.id}`}
+                            style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#A78BFA', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4 }}
+                          >
+                            View full profile
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                              <path d="M2 8l6-6M4 2h4v4" />
+                            </svg>
+                          </Link>
+                        </>
+                      )}
                     </div>
-                    <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8', marginTop: 2 }}>
-                      points
-                    </div>
-                  </div>
+                  )}
                 </div>
               )
             })}
@@ -405,6 +421,9 @@ export default function LeaderboardPage() {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50%       { opacity: 0.4; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
