@@ -63,6 +63,8 @@ type ClaimedTask = {
   extension_granted: boolean
   extension_requested_at: string | null
   extended_deadline_at: string | null
+  unclaimed_by: string[] | null
+  unclaimed_at: string[] | null
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -471,6 +473,8 @@ function DashboardContent() {
   const [contributor, setContributor] = useState<Contributor | null>(null)
   const [contributions, setContributions] = useState<Contribution[]>([])
   const [claimedTasks, setClaimedTasks] = useState<ClaimedTask[]>([])
+  const [unclaimTaskId, setUnclaimTaskId] = useState<string | null>(null)
+  const [unclaimTaskTitle, setUnclaimTaskTitle] = useState<string>('')
 
   const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
@@ -777,8 +781,12 @@ function DashboardContent() {
       }
     }
 
-    // Show appropriate success message based on review decision
-    setReviewResult(reviewDecision)
+    // Map review service decision to internal status before setting state
+    const mappedDecision = reviewDecision === 'approved'
+      ? 'ai_approved'
+      : reviewDecision
+
+    setReviewResult(mappedDecision)
     setReviewFeedback(reviewFeedbackData)
     setSubmitSuccess(true)
     setShowForm(false)
@@ -1264,7 +1272,7 @@ function DashboardContent() {
               </button>
 
               <Link
-                href="/contribute/tasks"
+                href="/contribute/dashboard/tasks"
                 className="flex flex-col gap-3 p-6 rounded-2xl border"
                 style={{ background: '#13101E', borderColor: '#1C1730', textDecoration: 'none', transition: 'border-color 0.3s' }}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = '#6B5FA0')}
@@ -1484,9 +1492,8 @@ function DashboardContent() {
 
                             <button
                               onClick={() => {
-                                if (window.confirm('Are you sure you want to unclaim this task? You will not be able to reclaim it for 30 days.')) {
-                                  handleUnclaim(task.id)
-                                }
+                                setUnclaimTaskId(task.id)
+                                setUnclaimTaskTitle(task.title)
                               }}
                               style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
                               onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#FCA5A5'; el.style.borderColor = 'rgba(239,68,68,0.4)'; el.style.background = 'rgba(239,68,68,0.06)' }}
@@ -1598,11 +1605,13 @@ function DashboardContent() {
                     </div>
 
                   {/* Compact action row */}
-                  {(c.status === 'submitted' || c.status === 'rejected') && (
+                  {(c.status === 'submitted' || c.status === 'rejected' || c.status === 'ai_approved') && (
                     <div className="px-5 pb-4 flex items-center justify-between gap-3 border-t pt-3" style={{ borderColor: '#1C1730' }}>
                       <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.5, flex: 1 }}>
                         {c.status === 'rejected'
                           ? 'Address the AI feedback and resubmit your work.'
+                          : c.status === 'ai_approved'
+                          ? 'AI pre-approved. Awaiting final core team verification.'
                           : 'Awaiting review. You can update and resubmit if needed.'}
                       </p>
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -2020,6 +2029,50 @@ function DashboardContent() {
             </div>
           </div>
         )}
+
+      {/* Unclaim confirmation modal */}
+      {unclaimTaskId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setUnclaimTaskId(null) }}
+        >
+          <div className="w-full max-w-md rounded-2xl border p-8 flex flex-col gap-5" style={{ background: '#13101E', borderColor: '#1C1730' }}>
+            <div>
+              <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: '#E8E6F0', marginBottom: 8 }}>
+                Unclaim this task?
+              </p>
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
+                You are about to unclaim <span style={{ color: '#A78BFA' }}>{unclaimTaskTitle}</span>.
+              </p>
+            </div>
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5', lineHeight: 1.65 }}>
+                Once unclaimed you will not be able to claim this task again for <strong>48 hours</strong>. Any progress you have made will not be saved.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  await handleUnclaim(unclaimTaskId)
+                  setUnclaimTaskId(null)
+                  setUnclaimTaskTitle('')
+                }}
+                style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer' }}
+              >
+                Yes, unclaim
+              </button>
+              <button
+                onClick={() => { setUnclaimTaskId(null); setUnclaimTaskTitle('') }}
+                className="btn-outline"
+                style={{ fontSize: 13 }}
+              >
+                Keep task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>

@@ -17,6 +17,8 @@ type Task = {
   deadline_days: number | null
   primitives: string[] | null
   links: { label: string; url: string }[] | null
+  unclaimed_by: string[] | null
+  unclaimed_at: string[] | null
   created_at: string
 }
 
@@ -86,7 +88,7 @@ function PortalTasksContent() {
 
       const { data: taskData } = await publicClient
         .from('tasks')
-        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitives, links, created_at')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, deadline_days, primitives, links, unclaimed_by, unclaimed_at, created_at')
         .eq('status', 'open')
         .order('created_at', { ascending: false })
 
@@ -106,18 +108,13 @@ function PortalTasksContent() {
     const deadlineDays = claimTask.complexity === 'small' ? 3 : claimTask.complexity === 'medium' ? 6 : 12
     const deadlineAt = new Date(now.getTime() + deadlineDays * 24 * 60 * 60 * 1000)
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .update({
-        status: 'assigned',
-        assigned_to: contributor.id,
-        claimed_at: now.toISOString(),
-        deadline_at: deadlineAt.toISOString(),
-        deadline_days: deadlineDays,
+    const { data: claimResult, error } = await supabase
+      .rpc('claim_task', {
+        task_id: claimTask.id,
+        contributor_id: contributor.id,
+        deadline_days_val: deadlineDays,
+        deadline_at_val: deadlineAt.toISOString(),
       })
-      .eq('id', claimTask.id)
-      .eq('status', 'open')
-      .select()
 
     if (error) {
       setClaimError('Failed to claim task. Please try again.')
@@ -125,8 +122,14 @@ function PortalTasksContent() {
       return
     }
 
-    if (!data || data.length === 0) {
-      setClaimError('This task was just claimed by someone else. Please choose another.')
+    if (claimResult === false) {
+      setClaimError('You unclaimed this task recently. You can claim it again in 48 hours.')
+      setClaiming(false)
+      return
+    }
+
+    if (claimResult === null) {
+      setClaimError('This task was just claimed by someone else.')
       setClaiming(false)
       return
     }
@@ -333,6 +336,21 @@ function PortalTasksContent() {
                           <button
                             onClick={() => {
                               if (maxReached) return
+                              // Check 48 hour cooldown
+                              if (contributor && task.unclaimed_by && task.unclaimed_at) {
+                                const idx = task.unclaimed_by.indexOf(contributor.id)
+                                if (idx !== -1) {
+                                  const unclaimedTime = new Date(task.unclaimed_at[idx]).getTime()
+                                  const hoursSince = (Date.now() - unclaimedTime) / (1000 * 60 * 60)
+                                  if (hoursSince < 48) {
+                                    const hoursLeft = Math.ceil(48 - hoursSince)
+                                    setClaimError(`You unclaimed this task recently. You can claim it again in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}.`)
+                                    setClaimTask(task)
+                                    setClaimed(false)
+                                    return
+                                  }
+                                }
+                              }
                               setClaimTask(task)
                               setClaimed(false)
                               setClaimError('')
@@ -417,9 +435,9 @@ function PortalTasksContent() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleClaim}
-                    disabled={claiming}
+                    disabled={claiming || claimError.includes('48 hours')}
                     className="btn-primary flex-1 justify-center"
-                    style={{ opacity: claiming ? 0.7 : 1 }}
+                    style={{ opacity: claiming || claimError.includes('48 hours') ? 0.4 : 1, cursor: claimError.includes('48 hours') ? 'not-allowed' : 'pointer' }}
                   >
                     {claiming ? 'Claiming...' : 'Confirm claim'}
                   </button>

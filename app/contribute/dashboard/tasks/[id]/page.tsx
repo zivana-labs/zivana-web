@@ -18,6 +18,8 @@ type Task = {
   status: string
   assigned_to: string | null
   deadline_days: number | null
+  unclaimed_by: string[] | null
+  unclaimed_at: string[] | null
   primitives: string[] | null
   links: { label: string; url: string }[] | null
   created_at: string
@@ -90,7 +92,7 @@ function PortalTaskDetailContent() {
 
       const { data: taskData, error } = await publicClient
         .from('tasks')
-        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, assigned_to, deadline_days, primitives, links, created_at')
+        .select('id, title, description, category, complexity, point_range_min, point_range_max, status, assigned_to, deadline_days, primitives, links, unclaimed_by, unclaimed_at, created_at')
         .eq('id', taskId)
         .single()
 
@@ -121,23 +123,38 @@ function PortalTaskDetailContent() {
     setClaiming(true)
     setClaimError('')
 
+    // Check 48 hour cooldown via database function
     const supabase = createClient()
+    const { data: canClaim } = await supabase
+      .rpc('check_claim_cooldown', {
+        task_id: task.id,
+        contributor_id: contributor.id,
+      })
+
+    if (canClaim === false) {
+      const unclaimIdx = task.unclaimed_by?.lastIndexOf(contributor.id) ?? -1
+      const unclaimTime = unclaimIdx !== -1 && task.unclaimed_at
+        ? new Date(task.unclaimed_at[unclaimIdx]).getTime()
+        : null
+      const hoursLeft = unclaimTime
+        ? Math.ceil(48 - (Date.now() - unclaimTime) / (1000 * 60 * 60))
+        : 48
+      setClaimError(`You unclaimed this task recently. You can claim it again in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}.`)
+      setClaiming(false)
+      return
+    }
+
     const now = new Date()
     const deadlineDays = task.complexity === 'small' ? 3 : task.complexity === 'medium' ? 6 : 12
     const deadlineAt = new Date(now.getTime() + deadlineDays * 24 * 60 * 60 * 1000)
 
-    const { data, error } = await supabase
-      .from('tasks')
-      .update({
-        status: 'assigned',
-        assigned_to: contributor.id,
-        claimed_at: now.toISOString(),
-        deadline_at: deadlineAt.toISOString(),
-        deadline_days: deadlineDays,
+    const { data: claimResult, error } = await supabase
+      .rpc('claim_task', {
+        task_id: task.id,
+        contributor_id: contributor.id,
+        deadline_days_val: deadlineDays,
+        deadline_at_val: deadlineAt.toISOString(),
       })
-      .eq('id', task.id)
-      .eq('status', 'open')
-      .select()
 
     if (error) {
       setClaimError('Failed to claim task. Please try again.')
@@ -145,7 +162,13 @@ function PortalTaskDetailContent() {
       return
     }
 
-    if (!data || data.length === 0) {
+    if (claimResult === false) {
+      setClaimError('You unclaimed this task recently. You can claim it again in 48 hours.')
+      setClaiming(false)
+      return
+    }
+
+    if (claimResult === null) {
       setClaimError('This task was just claimed by someone else.')
       setClaiming(false)
       return
@@ -345,9 +368,9 @@ function PortalTaskDetailContent() {
               <div className="flex gap-3">
                 <button
                   onClick={handleClaim}
-                  disabled={claiming}
+                  disabled={claiming || claimError.includes('48 hours')}
                   className="btn-primary"
-                  style={{ fontSize: 13, opacity: claiming ? 0.7 : 1 }}
+                  style={{ fontSize: 13, opacity: claiming || claimError.includes('48 hours') ? 0.4 : 1, cursor: claimError.includes('48 hours') ? 'not-allowed' : 'pointer' }}
                 >
                   {claiming ? 'Claiming...' : 'Claim this task'}
                 </button>
