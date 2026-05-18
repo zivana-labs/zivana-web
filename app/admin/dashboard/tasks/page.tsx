@@ -130,7 +130,14 @@ function TasksContent() {
 
     const range = POINT_RANGES[editForm.category]?.[editForm.complexity]
 
-    const validLinks = editForm.links.filter(l => l.url.trim() !== '')
+    const validLinks = editForm.links
+      .filter(l => l.url.trim() !== '')
+      .map(l => ({
+        ...l,
+        url: l.url.startsWith('http://') || l.url.startsWith('https://')
+          ? l.url
+          : `https://${l.url}`,
+      }))
 
     const { error } = await supabase
       .from('tasks')

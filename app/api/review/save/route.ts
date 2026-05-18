@@ -12,12 +12,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const body = await request.json()
     const {
       contribution_id,
       review_decision,
       review_score,
       review_feedback,
-    } = await request.json()
+    } = body
 
     if (!contribution_id || !review_decision) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -29,11 +30,38 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const newStatus = review_decision === 'approved'
-      ? 'ai_approved'
-      : review_decision === 'human_required'
-      ? 'submitted'
-      : 'rejected'
+    // Security-first status mapping
+    // Any critical, high, or medium security issue overrides AI approval
+    let newStatus: string
+
+    if (review_decision === 'human_required') {
+      newStatus = 'submitted' // Escalated to human review
+    } else if (review_decision === 'rejected') {
+      newStatus = 'rejected'
+    } else if (review_decision === 'approved') {
+      // Check for security issues in code audit
+      const codeAudit = body.code_audit
+      const securityIssues = codeAudit?.security_issues ?? []
+
+      const hasCritical = securityIssues.some((i: { severity: string }) => i.severity === 'critical')
+      const hasHigh = securityIssues.some((i: { severity: string }) => i.severity === 'high')
+      const hasMedium = securityIssues.some((i: { severity: string }) => i.severity === 'medium')
+      const hasLow = securityIssues.some((i: { severity: string }) => i.severity === 'low')
+      const hasCriticalFlag = codeAudit?.has_critical_security_issue === true
+
+      if (hasCriticalFlag || hasCritical || hasHigh || hasMedium) {
+        // Critical, high, or medium — reject regardless of score
+        newStatus = 'rejected'
+      } else if (hasLow) {
+        // Low severity — escalate to human review
+        newStatus = 'submitted'
+      } else {
+        // No security issues and score >= 80 — AI approved
+        newStatus = 'ai_approved'
+      }
+    } else {
+      newStatus = 'submitted'
+    }
 
     const updatePayload: Record<string, unknown> = {
       review_decision,

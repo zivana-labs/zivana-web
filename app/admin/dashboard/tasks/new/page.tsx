@@ -100,7 +100,14 @@ function CreateTaskContent() {
     const range = POINT_RANGES[form.category]?.[form.complexity]
     const deadlineDays = DEADLINE_DAYS[form.complexity]
 
-    const validLinks = form.links.filter(l => l.url.trim() !== '')
+    const validLinks = form.links
+      .filter(l => l.url.trim() !== '')
+      .map(l => ({
+        ...l,
+        url: l.url.startsWith('http://') || l.url.startsWith('https://')
+          ? l.url
+          : `https://${l.url}`,
+      }))
 
     let insertData: Record<string, unknown> = {
       title: form.title.trim(),

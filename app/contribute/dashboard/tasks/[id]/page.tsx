@@ -317,7 +317,7 @@ function PortalTaskDetailContent() {
               {task!.links.map((link, i) => (
                 <a
                   key={i}
-                  href={link.url}
+                  href={link.url.startsWith('http://') || link.url.startsWith('https://') ? link.url : `https://${link.url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3"
