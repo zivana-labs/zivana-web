@@ -34,12 +34,19 @@ type Contributor = {
 type Contribution = {
   id: string
   title: string
+  description: string | null
   category: string
   complexity: string
   base_points: number
-  final_points: number
+  final_points: number | null
   status: string
   created_at: string
+  updated_at: string | null
+  evidence_url: string | null
+  submission_count: number | null
+  review_decision: string | null
+  review_score: number | null
+  review_feedback: Record<string, unknown> | null
 }
 
 type ClaimedTask = {
@@ -56,6 +63,8 @@ type ClaimedTask = {
   extension_granted: boolean
   extension_requested_at: string | null
   extended_deadline_at: string | null
+  unclaimed_by: string[] | null
+  unclaimed_at: string[] | null
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -67,10 +76,11 @@ const CATEGORY_COLOURS: Record<string, string> = {
 }
 
 const STATUS_COLOURS: Record<string, { bg: string; text: string; border: string }> = {
-  submitted:    { bg: 'rgba(92,64,20,0.15)',   text: '#FCD34D', border: 'rgba(92,64,20,0.3)' },
-  under_review: { bg: 'rgba(28,95,138,0.15)',  text: '#7DD3FC', border: 'rgba(28,95,138,0.3)' },
-  verified:     { bg: 'rgba(15,118,110,0.15)', text: '#5EEAD4', border: 'rgba(15,118,110,0.3)' },
-  rejected:     { bg: 'rgba(127,29,29,0.15)',  text: '#FCA5A5', border: 'rgba(127,29,29,0.3)' },
+  submitted:    { bg: 'rgba(92,64,20,0.15)',    text: '#FCD34D', border: 'rgba(92,64,20,0.3)' },
+  under_review: { bg: 'rgba(28,95,138,0.15)',   text: '#7DD3FC', border: 'rgba(28,95,138,0.3)' },
+  ai_approved:  { bg: 'rgba(14,165,233,0.12)',  text: '#7DD3FC', border: 'rgba(14,165,233,0.25)' },
+  verified:     { bg: 'rgba(15,118,110,0.15)',  text: '#5EEAD4', border: 'rgba(15,118,110,0.3)' },
+  rejected:     { bg: 'rgba(127,29,29,0.15)',   text: '#FCA5A5', border: 'rgba(127,29,29,0.3)' },
 }
 
 function ProfileEditForm({
@@ -463,6 +473,8 @@ function DashboardContent() {
   const [contributor, setContributor] = useState<Contributor | null>(null)
   const [contributions, setContributions] = useState<Contribution[]>([])
   const [claimedTasks, setClaimedTasks] = useState<ClaimedTask[]>([])
+  const [unclaimTaskId, setUnclaimTaskId] = useState<string | null>(null)
+  const [unclaimTaskTitle, setUnclaimTaskTitle] = useState<string>('')
 
   const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
@@ -480,6 +492,7 @@ function DashboardContent() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [feedbackContribution, setFeedbackContribution] = useState<any | null>(null)
   const [reviewResult, setReviewResult] = useState<string | null>(null)
   const [reviewFeedback, setReviewFeedback] = useState<Record<string, unknown> | null>(null)
 
@@ -626,7 +639,7 @@ function DashboardContent() {
       .eq('title', form.title.trim())
       .eq('category', form.category)
       .eq('status', 'verified')
-      .single()
+      .maybeSingle()
 
     if (verified) {
       setSubmitting(false)
@@ -644,7 +657,7 @@ function DashboardContent() {
       .in('status', ['submitted', 'under_review', 'rejected'])
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const submission_count = existing
       ? (existing.submission_count ?? 1) + 1
@@ -753,18 +766,27 @@ function DashboardContent() {
       }
     }
 
-    // Mark the claimed task as completed
+    // Only mark task complete when AI approves or submission goes to human review
+    // Do not mark complete on rejection — contributor needs to resubmit
     if (form.category !== 'community' && claimedTaskId) {
-      await supabase
-        .from('tasks')
-        .update({ status: 'completed' })
-        .eq('id', claimedTaskId)
+      const shouldComplete = reviewDecision === 'approved' || reviewDecision === 'human_required' || reviewDecision === null
 
-      setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
+      if (shouldComplete) {
+        await supabase
+          .from('tasks')
+          .update({ status: 'completed' })
+          .eq('id', claimedTaskId)
+
+        setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
+      }
     }
 
-    // Show appropriate success message based on review decision
-    setReviewResult(reviewDecision)
+    // Map review service decision to internal status before setting state
+    const mappedDecision = reviewDecision === 'approved'
+      ? 'ai_approved'
+      : reviewDecision
+
+    setReviewResult(mappedDecision)
     setReviewFeedback(reviewFeedbackData)
     setSubmitSuccess(true)
     setShowForm(false)
@@ -1098,93 +1120,124 @@ function DashboardContent() {
             {submitSuccess && (
   <div className="flex flex-col gap-4 p-6 rounded-2xl border" style={{
     background: reviewResult === 'ai_approved'
-      ? 'rgba(15,118,110,0.08)'
+      ? 'rgba(15,118,110,0.06)'
       : reviewResult === 'rejected'
       ? 'rgba(109,40,217,0.06)'
       : '#13101E',
     borderColor: reviewResult === 'ai_approved'
-      ? 'rgba(15,118,110,0.25)'
+      ? 'rgba(15,118,110,0.2)'
       : reviewResult === 'rejected'
       ? 'rgba(109,40,217,0.2)'
       : '#1C1730',
   }}>
-    {/* Icon */}
+    {/* Icon and title */}
     <div className="flex items-center gap-3">
-      {reviewResult === 'ai_approved' ? (
-        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(15,118,110,0.12)', border: '1px solid rgba(15,118,110,0.25)' }}>
+      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{
+        background: reviewResult === 'ai_approved'
+          ? 'rgba(15,118,110,0.12)'
+          : reviewResult === 'rejected'
+          ? 'rgba(109,40,217,0.1)'
+          : 'rgba(234,179,8,0.08)',
+        border: `1px solid ${reviewResult === 'ai_approved' ? 'rgba(15,118,110,0.25)' : reviewResult === 'rejected' ? 'rgba(109,40,217,0.2)' : 'rgba(234,179,8,0.2)'}`,
+      }}>
+        {reviewResult === 'ai_approved' ? (
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#5EEAD4" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 9l4 4L15 4" />
           </svg>
-        </div>
-      ) : reviewResult === 'rejected' ? (
-        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(109,40,217,0.08)', border: '1px solid rgba(109,40,217,0.2)' }}>
+        ) : reviewResult === 'rejected' ? (
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
             <circle cx="9" cy="9" r="7" />
             <path d="M9 5v4M9 13v.5" />
           </svg>
-        </div>
-      ) : (
-        <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)' }}>
+        ) : (
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#FCD34D" strokeWidth="1.5" strokeLinecap="round">
             <circle cx="9" cy="9" r="7" />
             <path d="M9 6v4M9 13v.5" />
           </svg>
-        </div>
-      )}
+        )}
+      </div>
       <div>
         <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
           {reviewResult === 'ai_approved'
             ? 'AI pre-approved'
             : reviewResult === 'rejected'
-            ? 'Contribution needs work'
-            : 'Contribution submitted'}
+            ? 'Needs improvement'
+            : 'Submitted for review'}
         </p>
-        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 2 }}>
+        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 2, lineHeight: 1.5 }}>
           {reviewResult === 'ai_approved'
             ? 'Your contribution passed automated review. The core team will do a final check before awarding points.'
             : reviewResult === 'rejected'
-            ? 'The automated review flagged some issues. See the feedback below.'
-            : 'Your contribution is under review by the core team.'}
+            ? 'The AI review flagged some issues. See the feedback below and resubmit with an updated evidence link.'
+            : 'Your contribution is in the review queue. The core team will evaluate it shortly.'}
         </p>
       </div>
     </div>
 
-    {/* Feedback from review service */}
-    {reviewFeedback && reviewResult === 'rejected' && (
-      <div className="flex flex-col gap-2 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
-        {typeof reviewFeedback.summary === 'string' && reviewFeedback.summary && (
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#C4B5FD', lineHeight: 1.65 }}>
-            {reviewFeedback.summary}
+    {/* AI score bar */}
+    {reviewResult && reviewFeedback && (
+      <div className="flex flex-col gap-3 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
+        {/* Score */}
+        {(reviewFeedback as any).score !== undefined && (
+          <div className="flex items-center gap-3">
+            <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${(reviewFeedback as any).score ?? 0}%`,
+                background: ((reviewFeedback as any).score ?? 0) >= 80 ? '#5EEAD4' : ((reviewFeedback as any).score ?? 0) >= 50 ? '#FCD34D' : '#A78BFA',
+                borderRadius: 3,
+                transition: 'width 0.6s ease',
+              }} />
+            </div>
+            <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0', flexShrink: 0 }}>
+              {(reviewFeedback as any).score}/100
+            </span>
+          </div>
+        )}
+
+        {/* Summary */}
+        {(reviewFeedback as any).summary && (
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
+            {(reviewFeedback as any).summary}
           </p>
         )}
-        {Array.isArray(reviewFeedback.issues) && reviewFeedback.issues.length > 0 && (
-          <div className="flex flex-col gap-2 mt-2">
-            {(reviewFeedback.issues as { check: string; message: string }[]).map((issue, i) => (
+
+        {/* Issues */}
+        {Array.isArray((reviewFeedback as any).issues) && (reviewFeedback as any).issues.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {((reviewFeedback as any).issues as { check: string; message: string }[]).map((issue, i) => (
               <div key={i} className="flex items-start gap-2">
-                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 6, flexShrink: 0 }} />
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.6 }}>
-                  {issue.message}
-                </p>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 5, flexShrink: 0 }} />
+                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>{issue.message}</p>
               </div>
             ))}
           </div>
         )}
-        {typeof reviewFeedback.what_to_do === 'string' && reviewFeedback.what_to_do && (
-          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65, marginTop: 4, borderTop: '1px solid #1C1730', paddingTop: 8 }}>
+
+        {/* Next steps */}
+        {(reviewFeedback as any).what_to_do && (
+          <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.65, paddingTop: 8, borderTop: '1px solid #1C1730' }}>
             <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
-            {reviewFeedback.what_to_do}
+            {(reviewFeedback as any).what_to_do}
           </p>
         )}
       </div>
     )}
 
-    <button
-      onClick={() => { setSubmitSuccess(false); setReviewResult(null); setReviewFeedback(null) }}
-      className="btn-outline"
-      style={{ fontSize: 12, alignSelf: 'flex-start' }}
-    >
-      Dismiss
-    </button>
+    {/* Actions */}
+    <div className="flex gap-3">
+      <button
+        onClick={() => {
+          setSubmitSuccess(false)
+          setReviewResult(null)
+          setReviewFeedback(null)
+        }}
+        className="btn-outline"
+        style={{ fontSize: 12 }}
+      >
+        {reviewResult === 'rejected' ? 'Update and resubmit' : 'Done'}
+      </button>
+    </div>
   </div>
 )}
 
@@ -1219,7 +1272,7 @@ function DashboardContent() {
               </button>
 
               <Link
-                href="/contribute/tasks"
+                href="/contribute/dashboard/tasks"
                 className="flex flex-col gap-3 p-6 rounded-2xl border"
                 style={{ background: '#13101E', borderColor: '#1C1730', textDecoration: 'none', transition: 'border-color 0.3s' }}
                 onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = '#6B5FA0')}
@@ -1439,9 +1492,8 @@ function DashboardContent() {
 
                             <button
                               onClick={() => {
-                                if (window.confirm('Are you sure you want to unclaim this task? You will not be able to reclaim it for 30 days.')) {
-                                  handleUnclaim(task.id)
-                                }
+                                setUnclaimTaskId(task.id)
+                                setUnclaimTaskTitle(task.title)
                               }}
                               style={{ fontSize: 11, padding: '7px 14px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#8B7EC8', fontFamily: 'Switzer, sans-serif', cursor: 'pointer', transition: 'all 0.2s' }}
                               onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = '#FCA5A5'; el.style.borderColor = 'rgba(239,68,68,0.4)'; el.style.background = 'rgba(239,68,68,0.06)' }}
@@ -1497,9 +1549,10 @@ function DashboardContent() {
                 return (
                   <div
                     key={c.id}
-                    className="flex items-center gap-4 p-5 rounded-xl border"
+                    className="flex flex-col rounded-xl border"
                     style={{ background: '#13101E', borderColor: '#1C1730' }}
                   >
+                    <div className="flex items-center gap-4 p-5">
                     <div className="flex-1 min-w-0">
                       <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0', marginBottom: 4 }}>
                         {c.title}
@@ -1514,8 +1567,16 @@ function DashboardContent() {
                         </span>
                         <span style={{ color: '#6B5FA0' }}>·</span>
                         <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#8B7EC8' }}>
-                          {new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(c.updated_at ?? c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
+                        {c.submission_count && c.submission_count > 1 && (
+                          <>
+                            <span style={{ color: '#6B5FA0' }}>·</span>
+                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: '#6B5FA0' }}>
+                              Submission {c.submission_count}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <span
@@ -1541,6 +1602,71 @@ function DashboardContent() {
                       </div>
                       <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 9, color: '#8B7EC8', marginTop: 2 }}>pts</div>
                     </div>
+                    </div>
+
+                  {/* Compact action row */}
+                  {(c.status === 'submitted' || c.status === 'rejected' || c.status === 'ai_approved') && (
+                    <div className="px-5 pb-4 flex items-center justify-between gap-3 border-t pt-3" style={{ borderColor: '#1C1730' }}>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.5, flex: 1 }}>
+                        {c.status === 'rejected'
+                          ? 'Address the AI feedback and resubmit your work.'
+                          : c.status === 'ai_approved'
+                          ? 'AI pre-approved. Awaiting final core team verification.'
+                          : 'Awaiting review. You can update and resubmit if needed.'}
+                      </p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {c.review_decision && (
+                          <button
+                            onClick={() => setFeedbackContribution(c)}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: 9999,
+                              border: '1px solid #1C1730',
+                              background: 'transparent',
+                              color: '#8B7EC8',
+                              fontFamily: 'Switzer, sans-serif',
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            AI feedback
+                          </button>
+                        )}
+                        {c.status === 'rejected' && (
+                          <button
+                            onClick={() => {
+                              setForm({
+                                title: c.title,
+                                description: c.description ?? '',
+                                category: c.category,
+                                complexity: c.complexity,
+                                evidence_url: c.evidence_url ?? '',
+                              })
+                              setShowForm(true)
+                              setSubmitSuccess(false)
+                              setSubmitError('')
+                            }}
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: 9999,
+                              border: '1px solid rgba(109,40,217,0.3)',
+                              background: 'rgba(109,40,217,0.08)',
+                              color: '#A78BFA',
+                              fontFamily: 'Switzer, sans-serif',
+                              fontSize: 11,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            Resubmit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   </div>
                 )
               })
@@ -1585,6 +1711,154 @@ function DashboardContent() {
               </div>
             ))}
             <ProfileEditForm contributor={contributor} onSave={(updated) => setContributor(updated)} />
+          </div>
+        )}
+
+        {/* Submit contribution modal */}
+        {/* AI feedback modal */}
+        {feedbackContribution && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setFeedbackContribution(null) }}
+          >
+            <div className="w-full max-w-lg rounded-2xl border overflow-hidden" style={{ background: '#13101E', borderColor: '#1C1730', maxHeight: '90vh', overflowY: 'auto' }}>
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#1C1730' }}>
+                <div>
+                  <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 15, color: '#E8E6F0' }}>
+                    AI Review Feedback
+                  </p>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', marginTop: 2 }}>
+                    {feedbackContribution.title}
+                  </p>
+                </div>
+                <button onClick={() => setFeedbackContribution(null)} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
+              </div>
+
+              <div className="p-6 flex flex-col gap-4">
+                {/* Decision and score */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <span style={{
+                    padding: '3px 12px', borderRadius: 20,
+                    background: feedbackContribution.review_decision === 'approved' ? 'rgba(15,118,110,0.15)' : 'rgba(109,40,217,0.12)',
+                    color: feedbackContribution.review_decision === 'approved' ? '#5EEAD4' : '#A78BFA',
+                    fontFamily: 'Switzer, sans-serif', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  }}>
+                    {feedbackContribution.review_decision}
+                  </span>
+                  {feedbackContribution.review_score !== null && feedbackContribution.review_score !== undefined && (
+                    <div className="flex items-center gap-3">
+                      <div style={{ width: 100, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${feedbackContribution.review_score}%`,
+                          background: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA',
+                          borderRadius: 3,
+                        }} />
+                      </div>
+                      <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA' }}>
+                        {feedbackContribution.review_score}/100
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Submission count */}
+                {feedbackContribution.submission_count && feedbackContribution.submission_count > 1 && (
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0' }}>
+                    Submission {feedbackContribution.submission_count} of 3
+                  </p>
+                )}
+
+                {/* Summary */}
+                {feedbackContribution.review_feedback?.summary && (
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#C4B5FD', lineHeight: 1.7 }}>
+                    {feedbackContribution.review_feedback.summary}
+                  </p>
+                )}
+
+                {/* Issues */}
+                {Array.isArray(feedbackContribution.review_feedback?.issues) && feedbackContribution.review_feedback.issues.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {feedbackContribution.review_feedback.issues.map((issue: { check: string; message: string }, i: number) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 6, flexShrink: 0 }} />
+                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.65 }}>{issue.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Checks breakdown */}
+                {feedbackContribution.review_feedback?.checks && (
+                  <div className="grid grid-cols-2 gap-1 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
+                    {Object.entries(feedbackContribution.review_feedback.checks as Record<string, boolean>).map(([check, passed]) => (
+                      <div key={check} className="flex items-center gap-2">
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: passed ? '#5EEAD4' : '#A78BFA', flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: passed ? '#5EEAD4' : '#8B7EC8', textTransform: 'capitalize' }}>
+                          {check.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Next steps */}
+                {feedbackContribution.review_feedback?.what_to_do && (
+                  <div className="p-4 rounded-xl" style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.15)' }}>
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65 }}>
+                      <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
+                      {feedbackContribution.review_feedback.what_to_do}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer — resubmit only if rejected */}
+              {feedbackContribution.status === 'rejected' && (
+                <div className="p-6 border-t flex gap-3" style={{ borderColor: '#1C1730' }}>
+                  <button
+                    onClick={() => {
+                      setForm({
+                        title: feedbackContribution.title,
+                        description: feedbackContribution.description ?? '',
+                        category: feedbackContribution.category,
+                        complexity: feedbackContribution.complexity,
+                        evidence_url: feedbackContribution.evidence_url ?? '',
+                      })
+                      setFeedbackContribution(null)
+                      setShowForm(true)
+                      setSubmitSuccess(false)
+                      setSubmitError('')
+                    }}
+                    className="btn-primary"
+                    style={{ fontSize: 13 }}
+                  >
+                    Resubmit with updated evidence
+                  </button>
+                  <button
+                    onClick={() => setFeedbackContribution(null)}
+                    className="btn-outline"
+                    style={{ fontSize: 13 }}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+
+              {feedbackContribution.status !== 'rejected' && (
+                <div className="p-6 border-t" style={{ borderColor: '#1C1730' }}>
+                  <button
+                    onClick={() => setFeedbackContribution(null)}
+                    className="btn-outline"
+                    style={{ fontSize: 13 }}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1733,7 +2007,14 @@ function DashboardContent() {
                     className="btn-primary flex-1 justify-center"
                     style={{ opacity: submitting ? 0.7 : 1 }}
                   >
-                    {submitting ? 'Submitting...' : 'Submit for review'}
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
+                          <path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.9 2.9l1.4 1.4M9.7 9.7l1.4 1.4M2.9 11.1l1.4-1.4M9.7 4.3l1.4-1.4" />
+                        </svg>
+                        AI reviewing...
+                      </span>
+                    ) : 'Submit for review'}
                   </button>
                   <button
                     type="button"
@@ -1748,6 +2029,50 @@ function DashboardContent() {
             </div>
           </div>
         )}
+
+      {/* Unclaim confirmation modal */}
+      {unclaimTaskId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(13,11,20,0.92)', backdropFilter: 'blur(16px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setUnclaimTaskId(null) }}
+        >
+          <div className="w-full max-w-md rounded-2xl border p-8 flex flex-col gap-5" style={{ background: '#13101E', borderColor: '#1C1730' }}>
+            <div>
+              <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 18, color: '#E8E6F0', marginBottom: 8 }}>
+                Unclaim this task?
+              </p>
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
+                You are about to unclaim <span style={{ color: '#A78BFA' }}>{unclaimTaskTitle}</span>.
+              </p>
+            </div>
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5', lineHeight: 1.65 }}>
+                Once unclaimed you will not be able to claim this task again for <strong>48 hours</strong>. Any progress you have made will not be saved.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  await handleUnclaim(unclaimTaskId)
+                  setUnclaimTaskId(null)
+                  setUnclaimTaskTitle('')
+                }}
+                style={{ fontSize: 13, padding: '10px 20px', borderRadius: 9999, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#FCA5A5', fontFamily: 'Switzer, sans-serif', cursor: 'pointer' }}
+              >
+                Yes, unclaim
+              </button>
+              <button
+                onClick={() => { setUnclaimTaskId(null); setUnclaimTaskTitle('') }}
+                className="btn-outline"
+                style={{ fontSize: 13 }}
+              >
+                Keep task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>
