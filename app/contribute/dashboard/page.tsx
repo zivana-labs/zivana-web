@@ -753,6 +753,7 @@ function DashboardContent() {
               review_decision: reviewResult.decision,
               review_score: reviewResult.overall_score,
               review_feedback: reviewResult.feedback,
+              code_audit: reviewResult.code_audit ?? null,
               base_points,
               timing_multiplier,
             }),
