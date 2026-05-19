@@ -475,6 +475,7 @@ function DashboardContent() {
   const [claimedTasks, setClaimedTasks] = useState<ClaimedTask[]>([])
   const [unclaimTaskId, setUnclaimTaskId] = useState<string | null>(null)
   const [unclaimTaskTitle, setUnclaimTaskTitle] = useState<string>('')
+  const [claimedTaskId, setClaimedTaskId] = useState<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const searchParams = useSearchParams()
@@ -495,6 +496,17 @@ function DashboardContent() {
   const [feedbackContribution, setFeedbackContribution] = useState<any | null>(null)
   const [reviewResult, setReviewResult] = useState<string | null>(null)
   const [reviewFeedback, setReviewFeedback] = useState<Record<string, unknown> | null>(null)
+
+  async function refreshClaimedTasks(contributorId: string) {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assigned_to', contributorId)
+      .eq('status', 'assigned')
+      .order('claimed_at', { ascending: true })
+    if (data) setClaimedTasks(data)
+  }
 
   useEffect(() => {
     async function load() {
@@ -589,23 +601,19 @@ function DashboardContent() {
 
     // Find the claimed task matching this submission
     let deadline_at: string | null = null
-    let claimedTaskId: string | null = null
     let timing_multiplier = 1.0
     let taskBrief: string | null = null
 
-    if (form.category !== 'community') {
+    if (form.category !== 'community' && claimedTaskId) {
       const { data: claimedTask } = await supabase
         .from('tasks')
-        .select('id, title, description, deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
+        .select('id, description, deadline_at, extended_deadline_at, extension_granted, claimed_at, deadline_days')
+        .eq('id', claimedTaskId)
         .eq('assigned_to', contributor.id)
         .eq('status', 'assigned')
-        .eq('category', form.category)
-        .order('claimed_at', { ascending: false })
-        .limit(1)
-        .single()
+        .maybeSingle()
 
       if (claimedTask?.deadline_at) {
-        claimedTaskId = claimedTask.id
         const effectiveDeadline = claimedTask.extension_granted && claimedTask.extended_deadline_at
           ? claimedTask.extended_deadline_at
           : claimedTask.deadline_at
@@ -613,7 +621,6 @@ function DashboardContent() {
         deadline_at = effectiveDeadline
         taskBrief = claimedTask.description ?? null
 
-        // Calculate timing multiplier using server clock via database function
         const { data: multiplierResult } = await supabase
           .rpc('calculate_timing_multiplier', {
             p_claimed_at: claimedTask.claimed_at,
@@ -792,6 +799,7 @@ function DashboardContent() {
     setSubmitSuccess(true)
     setShowForm(false)
     setForm({ title: '', description: '', category: 'technical', complexity: 'medium', evidence_url: '' })
+    setClaimedTaskId(null)
 
     // Refresh contributions
     const { data } = await supabase
@@ -809,6 +817,10 @@ function DashboardContent() {
       })
       setContributions(deduped)
     }
+
+    // Always refresh claimed tasks from database after any submission
+    // This ensures My Tasks tab stays in sync regardless of AI decision
+    await refreshClaimedTasks(contributor.id)
 
     setSubmitting(false)
   }
@@ -1467,6 +1479,7 @@ function DashboardContent() {
                             <button
                               onClick={() => {
                                 setForm({ title: task.title, description: '', category: task.category, complexity: task.complexity, evidence_url: '' })
+                                setClaimedTaskId(task.id)
                                 setShowForm(true)
                                 setSubmitError('')
                               }}
