@@ -23,6 +23,7 @@ type Contribution = {
   complexity: string
   final_points: number
   verified_at: string
+  evidence_url: string | null
 }
 
 const CATEGORY_COLOURS: Record<string, string> = {
@@ -63,7 +64,7 @@ function ContributorProfileContent() {
 
       const { data: contributionData } = await supabase
         .from('contributions')
-        .select('id, title, category, complexity, final_points, verified_at')
+        .select('id, title, category, complexity, final_points, verified_at, evidence_url')
         .eq('contributor_id', contributorId)
         .eq('status', 'verified')
         .order('verified_at', { ascending: false })
@@ -206,6 +207,22 @@ function ContributorProfileContent() {
                         <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
                           {new Date(contrib.verified_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
+                        {contrib.evidence_url && (
+                          <a
+                            href={contrib.evidence_url.startsWith('http://') || contrib.evidence_url.startsWith('https://') ? contrib.evidence_url : `https://${contrib.evidence_url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1"
+                            style={{ textDecoration: 'none' }}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#A78BFA" strokeWidth="1.5" strokeLinecap="round">
+                              <path d="M3.5 1.5H1.5v8h8V7.5M6.5 1.5h3v3M5 6l4.5-4.5" />
+                            </svg>
+                            <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#A78BFA' }}>
+                              View evidence
+                            </span>
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right">
