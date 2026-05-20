@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
       submission_count,
       submitted_at,
       task_brief,
+      previous_feedback,
     } = body
 
     // Validate required fields
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Review service not configured' }, { status: 503 })
     }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       contribution_id,
       contributor_id,
       title,
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
       submission_count: submission_count ?? 1,
       submitted_at: submitted_at ?? new Date().toISOString(),
       task_brief: task_brief || null,
+      ...(previous_feedback ? { previous_feedback } : {}),
     }
 
     // Sign the payload with HMAC-SHA256

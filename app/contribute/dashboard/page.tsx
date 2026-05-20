@@ -670,6 +670,9 @@ function DashboardContent() {
       ? (existing.submission_count ?? 1) + 1
       : 1
 
+    // Fetch previous review feedback for resubmission context
+    const previousFeedback = existing?.review_feedback ?? null
+
     let insertedContribution: { id: string } | null = null
     let error = null
 
@@ -743,6 +746,7 @@ function DashboardContent() {
             submission_count,
             submitted_at,
             task_brief: taskBrief,
+            ...(previousFeedback ? { previous_feedback: previousFeedback } : {}),
           }),
         })
 
@@ -1626,6 +1630,8 @@ function DashboardContent() {
                           ? 'Address the AI feedback and resubmit your work.'
                           : c.status === 'ai_approved'
                           ? 'AI pre-approved. Awaiting final core team verification.'
+                          : c.status === 'submitted' && !c.review_decision
+                          ? 'Review service did not respond. You can update your evidence and resubmit.'
                           : 'Awaiting review. You can update and resubmit if needed.'}
                       </p>
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -1648,7 +1654,7 @@ function DashboardContent() {
                             AI feedback
                           </button>
                         )}
-                        {c.status === 'rejected' && (
+                        {(c.status === 'rejected' || (c.status === 'submitted' && !c.review_decision)) && (
                           <button
                             onClick={() => {
                               setForm({
@@ -1825,6 +1831,58 @@ function DashboardContent() {
                       <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
                       {feedbackContribution.review_feedback.what_to_do}
                     </p>
+                  </div>
+                )}
+
+                {/* Resubmission assessment */}
+                {feedbackContribution.review_feedback?.resubmission_assessment && (
+                  <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{ background: '#0D0B14', borderColor: '#1C1730' }}>
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0' }}>
+                      Previous feedback assessment
+                    </p>
+                    {feedbackContribution.review_feedback.resubmission_assessment.summary && (
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
+                        {feedbackContribution.review_feedback.resubmission_assessment.summary}
+                      </p>
+                    )}
+                    {Array.isArray(feedbackContribution.review_feedback.resubmission_assessment.previous_issues_resolved) && (
+                      <div className="flex flex-col gap-2">
+                        {feedbackContribution.review_feedback.resubmission_assessment.previous_issues_resolved.map((item: { check: string; status: string; explanation: string }, i: number) => (
+                          <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: 20,
+                              fontFamily: 'Switzer, sans-serif',
+                              fontSize: 9,
+                              fontWeight: 500,
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                              flexShrink: 0,
+                              background: item.status === 'resolved'
+                                ? 'rgba(15,118,110,0.15)'
+                                : item.status === 'partially_resolved'
+                                ? 'rgba(234,179,8,0.15)'
+                                : 'rgba(109,40,217,0.1)',
+                              color: item.status === 'resolved'
+                                ? '#5EEAD4'
+                                : item.status === 'partially_resolved'
+                                ? '#FCD34D'
+                                : '#8B7EC8',
+                            }}>
+                              {item.status.replace(/_/g, ' ')}
+                            </span>
+                            <div className="flex flex-col gap-1">
+                              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, color: '#E8E6F0' }}>
+                                {item.check.replace(/_/g, ' ')}
+                              </p>
+                              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>
+                                {item.explanation}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

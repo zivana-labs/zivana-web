@@ -597,6 +597,58 @@ function ContributionsContent() {
                       {(selected.review_feedback as any).what_to_do}
                     </p>
                   )}
+
+                  {/* Resubmission assessment */}
+                  {selected.review_feedback && (selected.review_feedback as any).resubmission_assessment && (
+                    <div className="flex flex-col gap-3 p-4 rounded-xl border mt-2" style={{ background: '#0D0B14', borderColor: '#1C1730' }}>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0' }}>
+                        Previous feedback assessment
+                      </p>
+                      {(selected.review_feedback as any).resubmission_assessment.summary && (
+                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
+                          {(selected.review_feedback as any).resubmission_assessment.summary}
+                        </p>
+                      )}
+                      {Array.isArray((selected.review_feedback as any).resubmission_assessment.previous_issues_resolved) && (
+                        <div className="flex flex-col gap-2">
+                          {((selected.review_feedback as any).resubmission_assessment.previous_issues_resolved as { check: string; status: string; explanation: string }[]).map((item, i) => (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: 20,
+                                fontFamily: 'Switzer, sans-serif',
+                                fontSize: 9,
+                                fontWeight: 500,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                flexShrink: 0,
+                                background: item.status === 'resolved'
+                                  ? 'rgba(15,118,110,0.15)'
+                                  : item.status === 'partially_resolved'
+                                  ? 'rgba(234,179,8,0.15)'
+                                  : 'rgba(109,40,217,0.1)',
+                                color: item.status === 'resolved'
+                                  ? '#5EEAD4'
+                                  : item.status === 'partially_resolved'
+                                  ? '#FCD34D'
+                                  : '#8B7EC8',
+                              }}>
+                                {item.status.replace(/_/g, ' ')}
+                              </span>
+                              <div className="flex flex-col gap-1">
+                                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, color: '#E8E6F0' }}>
+                                  {item.check.replace(/_/g, ' ')}
+                                </p>
+                                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>
+                                  {item.explanation}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
