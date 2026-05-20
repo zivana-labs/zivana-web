@@ -4,6 +4,22 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+type ReviewFeedback = {
+  summary?: string
+  issues?: { check: string; message: string }[]
+  what_to_do?: string
+  checks?: Record<string, boolean>
+  score?: number
+  resubmission_assessment?: {
+    summary?: string
+    previous_issues_resolved?: {
+      check: string
+      status: 'resolved' | 'partially_resolved' | 'unresolved'
+      explanation: string
+    }[]
+  }
+}
+
 type Contribution = {
   id: string
   title: string
@@ -20,7 +36,7 @@ type Contribution = {
   contributor_id: string
   review_decision: string | null
   review_score: number | null
-  review_feedback: Record<string, unknown> | null
+  review_feedback: ReviewFeedback | null
   submission_count: number | null
   contributors: {
     name: string
@@ -545,16 +561,16 @@ function ContributionsContent() {
                   )}
 
                   {/* AI feedback summary */}
-                  {selected.review_feedback && (selected.review_feedback as any).summary && (
+                  {selected.review_feedback && selected.review_feedback.summary && (
                     <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
-                      {(selected.review_feedback as any).summary}
+                      {selected.review_feedback.summary}
                     </p>
                   )}
 
                   {/* Issues */}
-                  {selected.review_feedback && Array.isArray((selected.review_feedback as any).issues) && (selected.review_feedback as any).issues.length > 0 && (
+                  {selected.review_feedback && Array.isArray(selected.review_feedback.issues) && selected.review_feedback.issues.length > 0 && (
                     <div className="flex flex-col gap-2">
-                      {((selected.review_feedback as any).issues as { check: string; message: string }[]).map((issue, i) => (
+                      {selected.review_feedback.issues!.map((issue, i) => (
                         <div key={i} className="flex items-start gap-2">
                           <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 5, flexShrink: 0 }} />
                           <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>
@@ -566,9 +582,9 @@ function ContributionsContent() {
                   )}
 
                   {/* Checks breakdown */}
-                  {selected.review_feedback && (selected.review_feedback as any).checks && (
+                  {selected.review_feedback && selected.review_feedback.checks && (
                     <div className="grid grid-cols-2 gap-1 mt-1">
-                      {Object.entries((selected.review_feedback as any).checks as Record<string, boolean>).map(([check, passed]) => (
+                      {Object.entries(selected.review_feedback.checks!).map(([check, passed]) => (
                         <div key={check} className="flex items-center gap-2">
                           <div style={{
                             width: 6,
@@ -591,11 +607,63 @@ function ContributionsContent() {
                   )}
 
                   {/* What to do */}
-                  {selected.review_feedback && (selected.review_feedback as any).what_to_do && (
+                  {selected.review_feedback && selected.review_feedback.what_to_do && (
                     <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.65, paddingTop: 8, borderTop: '1px solid #1C1730' }}>
                       <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
-                      {(selected.review_feedback as any).what_to_do}
+                      {selected.review_feedback.what_to_do}
                     </p>
+                  )}
+
+                  {/* Resubmission assessment */}
+                  {selected.review_feedback && selected.review_feedback.resubmission_assessment && (
+                    <div className="flex flex-col gap-3 p-4 rounded-xl border mt-2" style={{ background: '#0D0B14', borderColor: '#1C1730' }}>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0' }}>
+                        Previous feedback assessment
+                      </p>
+                      {selected.review_feedback.resubmission_assessment.summary && (
+                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
+                          {selected.review_feedback.resubmission_assessment.summary}
+                        </p>
+                      )}
+                      {Array.isArray(selected.review_feedback.resubmission_assessment.previous_issues_resolved) && (
+                        <div className="flex flex-col gap-2">
+                          {selected.review_feedback.resubmission_assessment.previous_issues_resolved!.map((item, i) => (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: 20,
+                                fontFamily: 'Switzer, sans-serif',
+                                fontSize: 9,
+                                fontWeight: 500,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                flexShrink: 0,
+                                background: item.status === 'resolved'
+                                  ? 'rgba(15,118,110,0.15)'
+                                  : item.status === 'partially_resolved'
+                                  ? 'rgba(234,179,8,0.15)'
+                                  : 'rgba(109,40,217,0.1)',
+                                color: item.status === 'resolved'
+                                  ? '#5EEAD4'
+                                  : item.status === 'partially_resolved'
+                                  ? '#FCD34D'
+                                  : '#8B7EC8',
+                              }}>
+                                {item.status.replace(/_/g, ' ')}
+                              </span>
+                              <div className="flex flex-col gap-1">
+                                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, color: '#E8E6F0' }}>
+                                  {item.check.replace(/_/g, ' ')}
+                                </p>
+                                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>
+                                  {item.explanation}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
