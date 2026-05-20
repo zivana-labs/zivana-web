@@ -673,7 +673,7 @@ function DashboardContent() {
     // Check for existing submission with same title and category — update instead of insert
     const { data: existing } = await supabase
       .from('contributions')
-      .select('id, submission_count')
+      .select('id, submission_count, review_feedback')
       .eq('contributor_id', contributor.id)
       .eq('title', form.title.trim())
       .eq('category', form.category)
@@ -687,7 +687,7 @@ function DashboardContent() {
       : 1
 
     // Fetch previous review feedback for resubmission context
-    const previousFeedback = existing?.review_feedback ?? null
+    const previousFeedback = (existing as { id: string; submission_count: number | null; review_feedback: ReviewFeedback | null } | null)?.review_feedback ?? null
 
     let insertedContribution: { id: string } | null = null
     let error = null
