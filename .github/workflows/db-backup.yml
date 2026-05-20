@@ -1,0 +1,63 @@
+name: Nightly Database Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Runs at 2:00 AM UTC every day
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create backup
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          FILENAME="zivana_backup_${TIMESTAMP}.sql"
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --format=plain \
+            --file="${FILENAME}"
+          gzip "${FILENAME}"
+          echo "BACKUP_FILE=${FILENAME}.gz" >> $GITHUB_ENV
+          echo "Backup created: ${FILENAME}.gz"
+
+      - name: Checkout backup repository
+        uses: actions/checkout@v4
+        with:
+          repository: zivana-labs/zivana-db-backups
+          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          path: backup-repo
+
+      - name: Move backup to repository
+        run: |
+          mkdir -p backup-repo/backups
+          mv "${{ env.BACKUP_FILE }}" backup-repo/backups/
+          cd backup-repo
+          # Keep only last 30 backups to manage repository size
+          cd backups && ls -t | tail -n +31 | xargs -r rm --
+          cd ..
+
+      - name: Commit and push backup
+        run: |
+          cd backup-repo
+          git config user.name "Zivana Backup Bot"
+          git config user.email "deployment@zivana.network"
+          git add .
+          git commit -m "backup: ${{ env.BACKUP_FILE }}"
+          git push
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Backup failed at $(date)" 
+          echo "Check GitHub Actions logs for details"
