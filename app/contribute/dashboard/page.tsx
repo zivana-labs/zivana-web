@@ -796,16 +796,37 @@ function DashboardContent() {
 
     // Only mark task complete when AI approves or submission goes to human review
     // Do not mark complete on rejection — contributor needs to resubmit
-    if (form.category !== 'community' && claimedTaskId) {
+    if (form.category !== 'community') {
       const shouldComplete = reviewDecision === 'approved' || reviewDecision === 'human_required' || reviewDecision === null
 
       if (shouldComplete) {
-        await supabase
-          .from('tasks')
-          .update({ status: 'completed' })
-          .eq('id', claimedTaskId)
+        // Use claimedTaskId if set from Submit work button
+        // Fall back to looking up the most recently claimed task matching this category
+        let taskToComplete = claimedTaskId
 
-        setClaimedTasks(prev => prev.filter(t => t.id !== claimedTaskId))
+        if (!taskToComplete) {
+          const { data: fallbackTask } = await supabase
+            .from('tasks')
+            .select('id')
+            .eq('assigned_to', contributor.id)
+            .eq('status', 'assigned')
+            .eq('category', form.category)
+            .order('claimed_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          taskToComplete = fallbackTask?.id ?? null
+        }
+
+        if (taskToComplete) {
+          await supabase
+            .from('tasks')
+            .update({ status: 'completed' })
+            .eq('id', taskToComplete)
+
+          setClaimedTasks(prev => prev.filter(t => t.id !== taskToComplete))
+          setClaimedTaskId(null)
+        }
       }
     }
 
