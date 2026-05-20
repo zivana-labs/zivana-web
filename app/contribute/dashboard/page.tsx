@@ -46,7 +46,23 @@ type Contribution = {
   submission_count: number | null
   review_decision: string | null
   review_score: number | null
-  review_feedback: Record<string, unknown> | null
+  review_feedback: ReviewFeedback | null
+}
+
+type ReviewFeedback = {
+  summary?: string
+  issues?: { check: string; message: string }[]
+  what_to_do?: string
+  checks?: Record<string, boolean>
+  score?: number
+  resubmission_assessment?: {
+    summary?: string
+    previous_issues_resolved?: {
+      check: string
+      status: 'resolved' | 'partially_resolved' | 'unresolved'
+      explanation: string
+    }[]
+  }
 }
 
 type ClaimedTask = {
@@ -495,7 +511,7 @@ function DashboardContent() {
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [feedbackContribution, setFeedbackContribution] = useState<any | null>(null)
   const [reviewResult, setReviewResult] = useState<string | null>(null)
-  const [reviewFeedback, setReviewFeedback] = useState<Record<string, unknown> | null>(null)
+  const [reviewFeedback, setReviewFeedback] = useState<ReviewFeedback | null>(null)
 
   async function refreshClaimedTasks(contributorId: string) {
     const supabase = createClient()
@@ -728,7 +744,7 @@ function DashboardContent() {
     // Call the review service via our server-side API route
     const reviewServiceUrl = process.env.NEXT_PUBLIC_REVIEW_SERVICE_URL
     let reviewDecision: string | null = null
-    let reviewFeedbackData: Record<string, unknown> | null = null
+    let reviewFeedbackData: ReviewFeedback | null = null
 
     if (reviewServiceUrl) {
       try {
@@ -1195,34 +1211,34 @@ function DashboardContent() {
     {reviewResult && reviewFeedback && (
       <div className="flex flex-col gap-3 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
         {/* Score */}
-        {(reviewFeedback as any).score !== undefined && (
+        {reviewFeedback.score !== undefined && (
           <div className="flex items-center gap-3">
             <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
               <div style={{
                 height: '100%',
-                width: `${(reviewFeedback as any).score ?? 0}%`,
-                background: ((reviewFeedback as any).score ?? 0) >= 80 ? '#5EEAD4' : ((reviewFeedback as any).score ?? 0) >= 50 ? '#FCD34D' : '#A78BFA',
+                width: `${reviewFeedback.score ?? 0}%`,
+                background: (reviewFeedback.score ?? 0) >= 80 ? '#5EEAD4' : (reviewFeedback.score ?? 0) >= 50 ? '#FCD34D' : '#A78BFA',
                 borderRadius: 3,
                 transition: 'width 0.6s ease',
               }} />
             </div>
             <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0', flexShrink: 0 }}>
-              {(reviewFeedback as any).score}/100
+              {reviewFeedback.score}/100
             </span>
           </div>
         )}
 
         {/* Summary */}
-        {(reviewFeedback as any).summary && (
+        {reviewFeedback.summary && (
           <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#C4B5FD', lineHeight: 1.65 }}>
-            {(reviewFeedback as any).summary}
+            {reviewFeedback.summary}
           </p>
         )}
 
         {/* Issues */}
-        {Array.isArray((reviewFeedback as any).issues) && (reviewFeedback as any).issues.length > 0 && (
+        {Array.isArray(reviewFeedback.issues) && reviewFeedback.issues.length > 0 && (
           <div className="flex flex-col gap-2">
-            {((reviewFeedback as any).issues as { check: string; message: string }[]).map((issue, i) => (
+            {reviewFeedback.issues!.map((issue, i) => (
               <div key={i} className="flex items-start gap-2">
                 <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 5, flexShrink: 0 }} />
                 <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#8B7EC8', lineHeight: 1.6 }}>{issue.message}</p>
@@ -1232,10 +1248,10 @@ function DashboardContent() {
         )}
 
         {/* Next steps */}
-        {(reviewFeedback as any).what_to_do && (
+        {reviewFeedback.what_to_do && (
           <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0', lineHeight: 1.65, paddingTop: 8, borderTop: '1px solid #1C1730' }}>
             <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
-            {(reviewFeedback as any).what_to_do}
+            {reviewFeedback.what_to_do}
           </p>
         )}
       </div>
