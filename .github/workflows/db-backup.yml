@@ -2,64 +2,46 @@ name: Nightly Database Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Runs at 2:00 AM UTC every day
-  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Create backup
-        env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          FILENAME="zivana_backup_${TIMESTAMP}.sql"
-          pg_dump "$DATABASE_URL" \
-            --no-owner \
-            --no-acl \
-            --format=plain \
-            --file="${FILENAME}" \
-            --no-password \
-            -w
-          gzip "${FILENAME}"
-          echo "BACKUP_FILE=${FILENAME}.gz" >> $GITHUB_ENV
-          echo "Backup created: ${FILENAME}.gz"
-
-      - name: Checkout backup repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           repository: zivana-labs/zivana-db-backups
           token: ${{ secrets.BACKUP_REPO_TOKEN }}
-          path: backup-repo
 
-      - name: Move backup to repository
+      - name: Install Supabase CLI
         run: |
-          mkdir -p backup-repo/backups
-          mv "${{ env.BACKUP_FILE }}" backup-repo/backups/
-          cd backup-repo
-          # Keep only last 30 backups to manage repository size
-          cd backups && ls -t | tail -n +31 | xargs -r rm --
-          cd ..
+          curl -fsSL https://supabase.com/install.sh | sh
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
 
-      - name: Commit and push backup
+      - name: Run backup
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          cd backup-repo
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          mkdir -p backups
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/roles_${TIMESTAMP}.sql" --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/schema_${TIMESTAMP}.sql" --schema-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/data_${TIMESTAMP}.sql" --data-only
+          # Keep only last 30 backup sets
+          ls -t backups/roles_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
+          ls -t backups/schema_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
+          ls -t backups/data_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
+          echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+
+      - name: Commit backup
+        run: |
           git config user.name "Zivana Backup Bot"
           git config user.email "deployment@zivana.network"
-          git add .
-          git commit -m "backup: ${{ env.BACKUP_FILE }}"
+          git add backups/
+          git diff --staged --quiet || git commit -m "backup: ${{ env.TIMESTAMP }}"
           git push
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "Backup failed at $(date)" 
-          echo "Check GitHub Actions logs for details"
