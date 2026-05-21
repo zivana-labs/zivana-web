@@ -13,15 +13,16 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout backup repository
+        uses: actions/checkout@v4
         with:
           repository: zivana-labs/zivana-db-backups
           token: ${{ secrets.BACKUP_REPO_TOKEN }}
 
-      - name: Install Supabase CLI
-        run: |
-          curl -fsSL https://supabase.com/install.sh | sh
-          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
       - name: Run backup
         env:
@@ -33,12 +34,12 @@ jobs:
           supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/schema_${TIMESTAMP}.sql" --schema-only
           supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/data_${TIMESTAMP}.sql" --data-only
           # Keep only last 30 backup sets
-          ls -t backups/roles_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
-          ls -t backups/schema_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
-          ls -t backups/data_*.sql 2>/dev/null | tail -n +31 | xargs -r rm
+          ls -t backups/roles_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
+          ls -t backups/schema_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
+          ls -t backups/data_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
           echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
 
-      - name: Commit backup
+      - name: Commit and push backup
         run: |
           git config user.name "Zivana Backup Bot"
           git config user.email "deployment@zivana.network"
