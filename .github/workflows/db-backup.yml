@@ -31,7 +31,7 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           mkdir -p backups
           supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/roles_${TIMESTAMP}.sql" --role-only
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/schema_${TIMESTAMP}.sql" --schema-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/schema_${TIMESTAMP}.sql"
           supabase db dump --db-url "$SUPABASE_DB_URL" -f "backups/data_${TIMESTAMP}.sql" --data-only
           # Keep only last 30 backup sets
           ls -t backups/roles_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
