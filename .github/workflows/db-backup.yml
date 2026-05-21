@@ -26,7 +26,9 @@ jobs:
             --no-owner \
             --no-acl \
             --format=plain \
-            --file="${FILENAME}"
+            --file="${FILENAME}" \
+            --no-password \
+            -w
           gzip "${FILENAME}"
           echo "BACKUP_FILE=${FILENAME}.gz" >> $GITHUB_ENV
           echo "Backup created: ${FILENAME}.gz"
