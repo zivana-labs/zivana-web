@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className="bg-void text-light antialiased">
         <div style={{ overflowX: 'hidden' }}>
           <SiteShell>{children}</SiteShell>
