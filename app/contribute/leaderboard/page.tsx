@@ -51,7 +51,13 @@ export default function LeaderboardPage() {
         .eq('status', 'active')
         .order('total_points', { ascending: false })
 
-      if (!error && data) setContributors(data)
+      if (error) {
+        console.error('Leaderboard fetch error:', error)
+      } else if (data) {
+        setContributors(data)
+      } else {
+        console.warn('Leaderboard returned no data and no error')
+      }
       setLoading(false)
     }
     fetchContributors()

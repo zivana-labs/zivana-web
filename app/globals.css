@@ -144,6 +144,131 @@ body {
   }
 }
 
+.zivana-prose {
+  font-family: 'Switzer', sans-serif;
+  font-weight: 300;
+  font-size: 17px;
+  line-height: 1.78;
+  color: #C4B5FD;
+}
+
+.zivana-prose > * + * {
+  margin-top: 1.5em;
+}
+
+.zivana-prose h1,
+.zivana-prose h2,
+.zivana-prose h3,
+.zivana-prose h4 {
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-weight: 600;
+  color: #E8E6F0;
+  line-height: 1.25;
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+}
+
+.zivana-prose h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.025em; }
+.zivana-prose h2 { font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.02em; color: #A78BFA; }
+.zivana-prose h3 { font-size: 20px; letter-spacing: -0.015em; }
+.zivana-prose h4 { font-size: 17px; }
+
+.zivana-prose p {
+  color: #C4B5FD;
+}
+
+.zivana-prose a {
+  color: #A78BFA;
+  text-decoration: underline;
+  text-decoration-color: rgba(167, 139, 250, 0.35);
+  transition: color 0.2s ease;
+}
+.zivana-prose a:hover {
+  color: #C4B5FD;
+}
+
+.zivana-prose strong {
+  color: #E8E6F0;
+  font-weight: 500;
+}
+
+.zivana-prose ul,
+.zivana-prose ol {
+  padding-left: 1.4em;
+  color: #C4B5FD;
+}
+.zivana-prose ul { list-style-type: disc; }
+.zivana-prose ol { list-style-type: decimal; }
+.zivana-prose li {
+  margin-top: 0.5em;
+}
+.zivana-prose li::marker {
+  color: #6D28D9;
+}
+
+.zivana-prose blockquote {
+  border-left: 3px solid #6D28D9;
+  padding-left: 24px;
+  font-style: italic;
+  color: #7B6FA8;
+}
+
+.zivana-prose pre {
+  background: #13101E;
+  border: 1px solid #1C1730;
+  border-radius: 12px;
+  padding: 20px 24px;
+  overflow-x: auto;
+}
+.zivana-prose pre code {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  color: #A78BFA;
+  background: none;
+  padding: 0;
+}
+
+.zivana-prose code {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: #C4B5FD;
+  background: #1C1730;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.zivana-prose img {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #1C1730;
+}
+
+.zivana-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.zivana-prose th,
+.zivana-prose td {
+  border: 1px solid #1C1730;
+  padding: 10px 14px;
+  text-align: left;
+}
+.zivana-prose th {
+  font-family: 'Cabinet Grotesk', sans-serif;
+  font-weight: 600;
+  color: #E8E6F0;
+  background: #13101E;
+}
+.zivana-prose td {
+  color: #C4B5FD;
+}
+
+.zivana-prose hr {
+  border: none;
+  border-top: 1px solid #1C1730;
+}
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
