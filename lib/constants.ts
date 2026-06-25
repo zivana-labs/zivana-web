@@ -4,6 +4,7 @@ export const NAV_LINKS = [
   { label: 'Protocol',   href: '/protocol' },
   { label: 'Technology', href: '/technology' },
   { label: 'Litepaper',  href: '/litepaper' },
+  { label: 'Blog',       href: '/blog' }, 
   { label: 'Build',      href: '/build' },
   { label: 'Contribute',  href: '/contribute' },
   { label: 'Brand',      href: '/brand' },
@@ -148,4 +149,14 @@ export const CATEGORY_COLOURS: Record<string, string> = {
   community:  '#5EEAD4',
   research:   '#FCD34D',
   operations: '#A78BFA',
+}
+
+
+export const POST_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+  editorial:       { label: 'Editorial',       color: '#7B6FA8' }, // mute
+  announcement:    { label: 'Announcement',    color: '#5EEAD4' }, // teal
+  product_update:  { label: 'Product Update',  color: '#6D28D9' }, // core
+  event_recap:     { label: 'Event Recap',     color: '#C4B5FD' }, // mist
+  research:        { label: 'Research',        color: '#A78BFA' }, // lavender
+  recruitment:     { label: 'Recruitment',     color: '#8B5CF6' }, // violet
 }
