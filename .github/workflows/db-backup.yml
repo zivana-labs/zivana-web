@@ -1,29 +1,24 @@
 name: Nightly Database Backup
-
 on:
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
-
 jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
-
     steps:
       - name: Checkout backup repository
         uses: actions/checkout@v4
         with:
           repository: zivana-labs/zivana-db-backups
           token: ${{ secrets.BACKUP_REPO_TOKEN }}
-
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
-
+          version: 2.108.0
       - name: Run backup
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -38,7 +33,6 @@ jobs:
           ls -t backups/schema_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
           ls -t backups/data_*.sql 2>/dev/null | tail -n +31 | xargs -r rm --
           echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
-
       - name: Commit and push backup
         run: |
           git config user.name "Zivana Backup Bot"
