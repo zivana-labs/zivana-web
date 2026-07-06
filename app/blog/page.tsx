@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { getZivanaPosts } from '@/lib/blog'
 import { POST_TYPE_CONFIG } from '@/lib/constants'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Blog — Zivana Protocol',
   description: 'Research, announcements, and updates from Zivana Protocol.',

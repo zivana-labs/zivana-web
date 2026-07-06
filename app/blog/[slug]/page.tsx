@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { getZivanaPost, getRelatedZivanaPosts } from '@/lib/blog'
 import { POST_TYPE_CONFIG } from '@/lib/constants'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const post = await getZivanaPost(slug)
