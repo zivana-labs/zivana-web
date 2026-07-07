@@ -20,6 +20,7 @@ type Task = {
   status: string
   deadline_days: number
   assigned_to: string | null
+  contributors: { id: string; name: string; email: string } | null
   claimed_at: string | null
   deadline_at: string | null
   extension_requested_at: string | null
@@ -91,7 +92,7 @@ function TasksContent() {
     const supabase = createClient()
     let query = supabase
       .from('tasks')
-      .select('*')
+      .select('*, contributors(id, name, email)')
       .order('created_at', { ascending: false })
 
     if (filter !== 'all') {
@@ -424,6 +425,11 @@ function TasksContent() {
                       <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
                         {task.deadline_days} day deadline
                       </span>
+                      {(task.status === 'assigned' || task.status === 'completed') && task.contributors && (
+                        <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: task.status === 'completed' ? '#5EEAD4' : '#7DD3FC' }}>
+                          {task.contributors.name}
+                        </span>
+                      )}
                     </div>
                   </div>
 
