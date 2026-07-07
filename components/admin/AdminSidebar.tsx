@@ -67,6 +67,17 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    label: 'Audit Log',
+    href: '/admin/dashboard/audit',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M2 4h12M2 8h8M2 12h5" />
+        <circle cx="13" cy="11" r="2.5" />
+        <path d="M15 13.5l1.5 1.5" />
+      </svg>
+    ),
+  },
 ]
 
 function AdminSidebarContent() {

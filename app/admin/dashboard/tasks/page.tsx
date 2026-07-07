@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
+import { logAudit } from '@/lib/audit'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
@@ -19,6 +20,7 @@ type Task = {
   status: string
   deadline_days: number
   assigned_to: string | null
+  contributors: { id: string; name: string; email: string } | null
   claimed_at: string | null
   deadline_at: string | null
   extension_requested_at: string | null
@@ -90,7 +92,7 @@ function TasksContent() {
     const supabase = createClient()
     let query = supabase
       .from('tasks')
-      .select('*')
+      .select('*, contributors(id, name, email)')
       .order('created_at', { ascending: false })
 
     if (filter !== 'all') {
@@ -156,6 +158,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task updated successfully')
+      logAudit({
+        action: 'task.updated',
+        target_type: 'task',
+        target_id: selected.id,
+        target_label: editForm.title ?? selected.title,
+        metadata: { category: editForm.category, complexity: editForm.complexity },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -174,6 +183,12 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task deleted')
+      logAudit({
+        action: 'task.deleted',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: selected?.title ?? taskId,
+      })
       setSelected(null)
       setShowDeleteConfirm(false)
       await fetchTasks()
@@ -194,6 +209,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task unassigned successfully')
+      logAudit({
+        action: 'task.assigned',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: selected?.title ?? taskId,
+        metadata: { status: 'unassigned' },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -221,6 +243,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess(`Extension granted — new deadline: ${extendedDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`)
+      logAudit({
+        action: 'task.assigned',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: task.title,
+        metadata: { extension_granted: true, extended_deadline: extendedDeadline.toISOString() },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 4000)
@@ -396,6 +425,11 @@ function TasksContent() {
                       <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: '#6B5FA0' }}>
                         {task.deadline_days} day deadline
                       </span>
+                      {(task.status === 'assigned' || task.status === 'completed') && task.contributors && (
+                        <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, color: task.status === 'completed' ? '#5EEAD4' : '#7DD3FC' }}>
+                          {task.contributors.name}
+                        </span>
+                      )}
                     </div>
                   </div>
 
