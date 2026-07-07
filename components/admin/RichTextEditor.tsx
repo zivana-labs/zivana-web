@@ -31,6 +31,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
         orderedList: false,
         heading: false,
         hardBreak: false,
+        link: false,
       }),
       BulletList.configure({ keepMarks: true, keepAttributes: false }),
       OrderedList.configure({ keepMarks: true, keepAttributes: false }),

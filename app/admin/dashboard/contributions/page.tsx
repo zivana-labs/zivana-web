@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/audit'
 
 type ReviewFeedback = {
   summary?: string
@@ -159,6 +160,13 @@ function ContributionsContent() {
 
     if (!error) {
       setActionSuccess('Contribution verified successfully')
+      logAudit({
+        action: 'contribution.verified',
+        target_type: 'contribution',
+        target_id: selected.id,
+        target_label: selected.title,
+        metadata: { points: finalPoints, category: selected.category },
+      })
       setSelected(null)
       await fetchContributions()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -181,6 +189,13 @@ function ContributionsContent() {
 
     if (!error) {
       setActionSuccess('Contribution rejected')
+      logAudit({
+        action: 'contribution.rejected',
+        target_type: 'contribution',
+        target_id: selected.id,
+        target_label: selected.title,
+        metadata: { notes: reviewNotes },
+      })
       setSelected(null)
       await fetchContributions()
       setTimeout(() => setActionSuccess(''), 3000)

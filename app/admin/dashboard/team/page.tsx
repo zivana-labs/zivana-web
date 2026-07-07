@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { logAudit } from '@/lib/audit'
 
 type CoreTeamMember = {
   id: string
@@ -162,6 +163,7 @@ function TeamContent() {
     }
 
     setActionSuccess('Core team member added successfully')
+    logAudit({ action: 'core_team.member_added', target_type: 'core_team', target_label: inviteForm.name.trim(), metadata: { role: inviteForm.role, department: inviteForm.department } })
     resetInviteModal()
     await fetchTeam()
     setTimeout(() => setActionSuccess(''), 3000)
@@ -180,6 +182,7 @@ function TeamContent() {
 
     if (!error) {
       setActionSuccess('Role updated successfully')
+      logAudit({ action: 'core_team.role_updated', target_type: 'core_team', target_id: selected.id, target_label: selected.name, metadata: { role: editRole, department: editDepartment } })
       setSelected(null)
       await fetchTeam()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -202,6 +205,7 @@ function TeamContent() {
 
     if (!error) {
       setActionSuccess(hasPermission ? 'Team management access revoked' : 'Team management access granted')
+      logAudit({ action: hasPermission ? 'core_team.manage_team_revoked' : 'core_team.manage_team_granted', target_type: 'core_team', target_id: member.id, target_label: member.name })
       setSelected(null)
       await fetchTeam()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -221,6 +225,7 @@ function TeamContent() {
 
     if (!error) {
       setActionSuccess('Member deactivated')
+      logAudit({ action: 'core_team.member_deactivated', target_type: 'core_team', target_id: memberId })
       setSelected(null)
       await fetchTeam()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -239,6 +244,7 @@ function TeamContent() {
 
     if (!error) {
       setActionSuccess('Member reactivated')
+      logAudit({ action: 'core_team.member_reactivated', target_type: 'core_team', target_id: memberId })
       setSelected(null)
       await fetchTeam()
       setTimeout(() => setActionSuccess(''), 3000)

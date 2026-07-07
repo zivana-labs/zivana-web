@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
+import { logAudit } from '@/lib/audit'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
@@ -135,8 +136,9 @@ function CreateTaskContent() {
     const { error } = await supabase.from('tasks').insert(insertData)
 
     if (!error) {
+      let assignedContributor: Contributor | undefined
       if (createMode === 'direct') {
-        const assignedContributor = contributors.find(c => c.id === form.assignedTo)
+        assignedContributor = contributors.find(c => c.id === form.assignedTo)
         if (assignedContributor) {
           const displayName = assignedContributor.contributor_type === 'team' && assignedContributor.team_name
             ? assignedContributor.team_name
@@ -184,6 +186,18 @@ function CreateTaskContent() {
         }
       }
 
+      logAudit({
+        action: createMode === 'direct' ? 'task.assigned' : 'task.created',
+        target_type: 'task',
+        target_label: form.title.trim(),
+        metadata: {
+          category: form.category,
+          complexity: form.complexity,
+          ...(createMode === 'direct' && {
+            assigned_to: assignedContributor?.name ?? form.assignedTo,
+          }),
+        },
+      })
       router.push('/admin/dashboard/tasks')
     }
 

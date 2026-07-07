@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
+import { logAudit } from '@/lib/audit'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
@@ -156,6 +157,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task updated successfully')
+      logAudit({
+        action: 'task.updated',
+        target_type: 'task',
+        target_id: selected.id,
+        target_label: editForm.title ?? selected.title,
+        metadata: { category: editForm.category, complexity: editForm.complexity },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -174,6 +182,12 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task deleted')
+      logAudit({
+        action: 'task.deleted',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: selected?.title ?? taskId,
+      })
       setSelected(null)
       setShowDeleteConfirm(false)
       await fetchTasks()
@@ -194,6 +208,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess('Task unassigned successfully')
+      logAudit({
+        action: 'task.assigned',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: selected?.title ?? taskId,
+        metadata: { status: 'unassigned' },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -221,6 +242,13 @@ function TasksContent() {
 
     if (!error) {
       setActionSuccess(`Extension granted — new deadline: ${extendedDeadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`)
+      logAudit({
+        action: 'task.assigned',
+        target_type: 'task',
+        target_id: taskId,
+        target_label: task.title,
+        metadata: { extension_granted: true, extended_deadline: extendedDeadline.toISOString() },
+      })
       setSelected(null)
       await fetchTasks()
       setTimeout(() => setActionSuccess(''), 4000)

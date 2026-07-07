@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Suspense } from 'react'
+import { logAudit } from '@/lib/audit'
 
 type Contributor = {
   id: string
@@ -148,6 +149,17 @@ function ContributorsContent() {
       }
 
       setActionSuccess(`Contributor ${newStatus === 'active' ? 'approved' : newStatus} successfully`)
+      logAudit({
+        action: newStatus === 'active'
+          ? 'contributor.approved'
+          : newStatus === 'rejected'
+          ? 'contributor.rejected'
+          : 'contributor.status_changed',
+        target_type: 'contributor',
+        target_id: contributorId,
+        target_label: selected?.name ?? contributorId,
+        metadata: { status: newStatus },
+      })
       setSelected(null)
       await fetchContributors()
       setTimeout(() => setActionSuccess(''), 3000)
@@ -193,6 +205,13 @@ function ContributorsContent() {
     })
 
     setActionSuccess('Revision requested — contributor notified')
+    logAudit({
+      action: 'contributor.status_changed',
+      target_type: 'contributor',
+      target_id: selected.id,
+      target_label: selected.name,
+      metadata: { status: 'revision_requested', notes: revisionNotes.trim() },
+    })
     setSelected(null)
     setShowRevisionForm(false)
     setRevisionNotes('')
@@ -238,6 +257,13 @@ function ContributorsContent() {
     })
 
     setActionSuccess('Application rejected — contributor notified')
+    logAudit({
+      action: 'contributor.rejected',
+      target_type: 'contributor',
+      target_id: selected.id,
+      target_label: selected.name,
+      metadata: { reason: rejectionReason.trim() || null },
+    })
     setSelected(null)
     setShowRejectionForm(false)
     setRejectionReason('')
