@@ -34,7 +34,8 @@ type Contribution = {
   evidence_url: string | null
   notes: string | null
   created_at: string
-  contributor_id: string
+  contributor_id: string | null
+  task_id: string | null
   review_decision: string | null
   review_score: number | null
   review_feedback: ReviewFeedback | null
@@ -159,6 +160,31 @@ function ContributionsContent() {
       .eq('id', selected.id)
 
     if (!error) {
+      // Complete the linked task if task_id exists
+      if (selected.task_id) {
+        await supabase
+          .from('tasks')
+          .update({ status: 'completed' })
+          .eq('id', selected.task_id)
+          .eq('status', 'assigned')
+      } else if (selected.contributor_id) {
+        // Fallback for contributions without task_id (submitted before this fix)
+        // Match by contributor and title to find the stuck task
+        const { data: matchedTask } = await supabase
+          .from('tasks')
+          .select('id')
+          .eq('assigned_to', selected.contributor_id)
+          .eq('status', 'assigned')
+          .ilike('title', `%${selected.title.substring(0, 30)}%`)
+          .maybeSingle()
+
+        if (matchedTask) {
+          await supabase
+            .from('tasks')
+            .update({ status: 'completed' })
+            .eq('id', matchedTask.id)
+        }
+      }
       setActionSuccess('Contribution verified successfully')
       logAudit({
         action: 'contribution.verified',

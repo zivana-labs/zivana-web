@@ -729,6 +729,7 @@ function DashboardContent() {
           evidence_url: form.evidence_url || null,
           status: 'submitted',
           submission_count: 1,
+          task_id: claimedTaskId || null,
         })
         .select('id')
         .single()
