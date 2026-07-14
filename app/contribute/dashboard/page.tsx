@@ -1794,33 +1794,7 @@ function DashboardContent() {
                 <button onClick={() => setFeedbackContribution(null)} style={{ color: '#8B7EC8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 20 }}>×</button>
               </div>
 
-              <div className="p-6 flex flex-col gap-4">
-                {/* Decision and score */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <span style={{
-                    padding: '3px 12px', borderRadius: 20,
-                    background: feedbackContribution.review_decision === 'approved' ? 'rgba(15,118,110,0.15)' : 'rgba(109,40,217,0.12)',
-                    color: feedbackContribution.review_decision === 'approved' ? '#5EEAD4' : '#A78BFA',
-                    fontFamily: 'Switzer, sans-serif', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-                  }}>
-                    {feedbackContribution.review_decision}
-                  </span>
-                  {feedbackContribution.review_score !== null && feedbackContribution.review_score !== undefined && (
-                    <div className="flex items-center gap-3">
-                      <div style={{ width: 100, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${feedbackContribution.review_score}%`,
-                          background: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA',
-                          borderRadius: 3,
-                        }} />
-                      </div>
-                      <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA' }}>
-                        {feedbackContribution.review_score}/100
-                      </span>
-                    </div>
-                  )}
-                </div>
+              <div className="p-6 flex flex-col gap-5">
 
                 {/* Submission count */}
                 {feedbackContribution.submission_count && feedbackContribution.submission_count > 1 && (
@@ -1829,53 +1803,124 @@ function DashboardContent() {
                   </p>
                 )}
 
-                {/* Summary */}
-                {feedbackContribution.review_feedback?.summary && (
-                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#C4B5FD', lineHeight: 1.7 }}>
-                    {feedbackContribution.review_feedback.summary}
+                {/* ── SECTION 1: AI Quality Assessment ─────────────────────────────── */}
+                <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{ background: '#0D0B14', borderColor: '#1C1730' }}>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6B5FA0' }}>
+                    AI Quality Assessment
                   </p>
-                )}
 
-                {/* Issues */}
-                {Array.isArray(feedbackContribution.review_feedback?.issues) && feedbackContribution.review_feedback.issues.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                    {feedbackContribution.review_feedback.issues.map((issue: { check: string; message: string }, i: number) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#A78BFA', marginTop: 6, flexShrink: 0 }} />
-                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.65 }}>{issue.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Checks breakdown */}
-                {feedbackContribution.review_feedback?.checks && (
-                  <div className="grid grid-cols-2 gap-1 p-4 rounded-xl" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
-                    {Object.entries(feedbackContribution.review_feedback.checks as Record<string, boolean>).map(([check, passed]) => (
-                      <div key={check} className="flex items-center gap-2">
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: passed ? '#5EEAD4' : '#A78BFA', flexShrink: 0 }} />
-                        <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: passed ? '#5EEAD4' : '#8B7EC8', textTransform: 'capitalize' }}>
-                          {check.replace(/_/g, ' ')}
+                  {/* Score + decision badge */}
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <span style={{
+                      padding: '3px 12px', borderRadius: 20,
+                      background: feedbackContribution.review_decision === 'approved' ? 'rgba(15,118,110,0.15)' : 'rgba(109,40,217,0.12)',
+                      color: feedbackContribution.review_decision === 'approved' ? '#5EEAD4' : '#A78BFA',
+                      fontFamily: 'Switzer, sans-serif', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    }}>
+                      {feedbackContribution.review_decision}
+                    </span>
+                    {feedbackContribution.review_score !== null && feedbackContribution.review_score !== undefined && (
+                      <div className="flex items-center gap-3">
+                        <div style={{ width: 100, height: 6, borderRadius: 3, background: '#1C1730', overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${feedbackContribution.review_score}%`,
+                            background: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA',
+                            borderRadius: 3,
+                          }} />
+                        </div>
+                        <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 16, color: feedbackContribution.review_score >= 80 ? '#5EEAD4' : feedbackContribution.review_score >= 50 ? '#FCD34D' : '#A78BFA' }}>
+                          {feedbackContribution.review_score}/100
                         </span>
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
 
-                {/* Next steps */}
-                {feedbackContribution.review_feedback?.what_to_do && (
-                  <div className="p-4 rounded-xl" style={{ background: 'rgba(109,40,217,0.06)', border: '1px solid rgba(109,40,217,0.15)' }}>
-                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65 }}>
-                      <span style={{ color: '#A78BFA', fontWeight: 500 }}>Next steps: </span>
-                      {feedbackContribution.review_feedback.what_to_do}
+                  {/* Summary */}
+                  {feedbackContribution.review_feedback?.summary && (
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#C4B5FD', lineHeight: 1.7 }}>
+                      {feedbackContribution.review_feedback.summary}
                     </p>
+                  )}
+
+                  {/* Checks breakdown grid */}
+                  {feedbackContribution.review_feedback?.checks && (
+                    <div className="grid grid-cols-2 gap-1 p-3 rounded-xl" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
+                      {Object.entries(feedbackContribution.review_feedback.checks as Record<string, boolean>).map(([check, passed]) => (
+                        <div key={check} className="flex items-center gap-2">
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: passed ? '#5EEAD4' : '#A78BFA', flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, color: passed ? '#5EEAD4' : '#8B7EC8', textTransform: 'capitalize' }}>
+                            {check.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── SECTION 2: Security Review Status (only when rejected) ───────── */}
+                {feedbackContribution.status === 'rejected' && (
+                  <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.2)' }}>
+                    <div className="flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#FCA5A5" strokeWidth="1.5" strokeLinecap="round">
+                        <circle cx="7" cy="7" r="6" />
+                        <path d="M7 4v3M7 10h.01" />
+                      </svg>
+                      <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#FCA5A5' }}>
+                        Security review held this submission
+                      </p>
+                    </div>
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.7 }}>
+                      Your work scored highly on quality but one or more security concerns were flagged that must be addressed before this contribution can be accepted. Review the issues below, fix them in your submission, and resubmit.
+                    </p>
+
+                    {/* Deduplicated issues — show only unique messages */}
+                    {(() => {
+                      const issues = feedbackContribution.review_feedback?.issues ?? []
+                      const seen = new Set<string>()
+                      const unique = issues.filter((issue: { check: string; message: string }) => {
+                        const key = issue.message.trim().toLowerCase().substring(0, 80)
+                        if (seen.has(key)) return false
+                        seen.add(key)
+                        return true
+                      })
+                      return unique.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {unique.map((issue: { check: string; message: string }, i: number) => (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: '#0D0B14', border: '1px solid rgba(239,68,68,0.15)' }}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: 20, flexShrink: 0,
+                                fontFamily: 'Switzer, sans-serif', fontSize: 9, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+                                background: issue.check?.toUpperCase().includes('HIGH') || issue.check?.toUpperCase().includes('CRITICAL') ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.12)',
+                                color: issue.check?.toUpperCase().includes('HIGH') || issue.check?.toUpperCase().includes('CRITICAL') ? '#FCA5A5' : '#FCD34D',
+                              }}>
+                                {issue.check ?? 'issue'}
+                              </span>
+                              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#8B7EC8', lineHeight: 1.65 }}>
+                                {issue.message}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null
+                    })()}
+
+                    {/* What to do */}
+                    {feedbackContribution.review_feedback?.what_to_do && (
+                      <div className="p-3 rounded-lg" style={{ background: '#0D0B14', border: '1px solid #1C1730' }}>
+                        <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65 }}>
+                          <span style={{ color: '#A78BFA', fontWeight: 500 }}>What to do: </span>
+                          {feedbackContribution.review_feedback.what_to_do}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Resubmission assessment */}
+                {/* ── SECTION 3: Previous feedback assessment (resubmissions only) ─── */}
                 {feedbackContribution.review_feedback?.resubmission_assessment && (
                   <div className="flex flex-col gap-3 p-4 rounded-xl border" style={{ background: '#0D0B14', borderColor: '#1C1730' }}>
-                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B5FA0' }}>
+                    <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6B5FA0' }}>
                       Previous feedback assessment
                     </p>
                     {feedbackContribution.review_feedback.resubmission_assessment.summary && (
@@ -1888,24 +1933,10 @@ function DashboardContent() {
                         {feedbackContribution.review_feedback.resubmission_assessment.previous_issues_resolved.map((item: { check: string; status: string; explanation: string }, i: number) => (
                           <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: '#13101E', border: '1px solid #1C1730' }}>
                             <span style={{
-                              padding: '2px 8px',
-                              borderRadius: 20,
-                              fontFamily: 'Switzer, sans-serif',
-                              fontSize: 9,
-                              fontWeight: 500,
-                              letterSpacing: '0.08em',
-                              textTransform: 'uppercase',
-                              flexShrink: 0,
-                              background: item.status === 'resolved'
-                                ? 'rgba(15,118,110,0.15)'
-                                : item.status === 'partially_resolved'
-                                ? 'rgba(234,179,8,0.15)'
-                                : 'rgba(109,40,217,0.1)',
-                              color: item.status === 'resolved'
-                                ? '#5EEAD4'
-                                : item.status === 'partially_resolved'
-                                ? '#FCD34D'
-                                : '#8B7EC8',
+                              padding: '2px 8px', borderRadius: 20,
+                              fontFamily: 'Switzer, sans-serif', fontSize: 9, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0,
+                              background: item.status === 'resolved' ? 'rgba(15,118,110,0.15)' : item.status === 'partially_resolved' ? 'rgba(234,179,8,0.15)' : 'rgba(109,40,217,0.1)',
+                              color: item.status === 'resolved' ? '#5EEAD4' : item.status === 'partially_resolved' ? '#FCD34D' : '#8B7EC8',
                             }}>
                               {item.status.replace(/_/g, ' ')}
                             </span>
@@ -1923,37 +1954,43 @@ function DashboardContent() {
                     )}
                   </div>
                 )}
+
               </div>
 
-              {/* Footer — resubmit only if rejected */}
+              {/* ── Footer ────────────────────────────────────────────────────────────── */}
               {feedbackContribution.status === 'rejected' && (
-                <div className="p-6 border-t flex gap-3" style={{ borderColor: '#1C1730' }}>
-                  <button
-                    onClick={() => {
-                      setForm({
-                        title: feedbackContribution.title,
-                        description: feedbackContribution.description ?? '',
-                        category: feedbackContribution.category,
-                        complexity: feedbackContribution.complexity,
-                        evidence_url: feedbackContribution.evidence_url ?? '',
-                      })
-                      setFeedbackContribution(null)
-                      setShowForm(true)
-                      setSubmitSuccess(false)
-                      setSubmitError('')
-                    }}
-                    className="btn-primary"
-                    style={{ fontSize: 13 }}
-                  >
-                    Resubmit with updated evidence
-                  </button>
-                  <button
-                    onClick={() => setFeedbackContribution(null)}
-                    className="btn-outline"
-                    style={{ fontSize: 13 }}
-                  >
-                    Close
-                  </button>
+                <div className="p-6 border-t flex flex-col gap-3" style={{ borderColor: '#1C1730' }}>
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 12, color: '#6B5FA0', lineHeight: 1.65 }}>
+                    Address the security issues listed above, update your evidence URL if needed, and resubmit. Your quality score will be preserved.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setForm({
+                          title: feedbackContribution.title,
+                          description: feedbackContribution.description ?? '',
+                          category: feedbackContribution.category,
+                          complexity: feedbackContribution.complexity,
+                          evidence_url: feedbackContribution.evidence_url ?? '',
+                        })
+                        setFeedbackContribution(null)
+                        setShowForm(true)
+                        setSubmitSuccess(false)
+                        setSubmitError('')
+                      }}
+                      className="btn-primary"
+                      style={{ fontSize: 13 }}
+                    >
+                      Fix issues and resubmit
+                    </button>
+                    <button
+                      onClick={() => setFeedbackContribution(null)}
+                      className="btn-outline"
+                      style={{ fontSize: 13 }}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
               )}
 
