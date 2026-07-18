@@ -1362,10 +1362,11 @@ function DashboardContent() {
                     const sc = STATUS_COLOURS[c.status]
                     const cc = CATEGORY_COLOURS[c.category] ?? '#A78BFA'
                     return (
-                      <div
+                      <Link
                         key={c.id}
+                        href={`/contribute/dashboard/submissions/${c.id}`}
                         className="flex items-center gap-4 p-4 rounded-xl border"
-                        style={{ background: '#13101E', borderColor: '#1C1730' }}
+                        style={{ background: '#13101E', borderColor: '#1C1730', textDecoration: 'none', cursor: 'pointer' }}
                       >
                         <div className="flex-1 min-w-0">
                           <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 13, color: '#E8E6F0', marginBottom: 3 }}>
@@ -1400,7 +1401,7 @@ function DashboardContent() {
                         <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: cc, flexShrink: 0 }}>
                           {c.final_points ?? c.base_points} pts
                         </span>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
@@ -1608,7 +1609,11 @@ function DashboardContent() {
                     className="flex flex-col rounded-xl border"
                     style={{ background: '#13101E', borderColor: '#1C1730' }}
                   >
-                    <div className="flex items-center gap-4 p-5">
+                    <Link
+                      href={`/contribute/dashboard/submissions/${c.id}`}
+                      className="flex items-center gap-4 p-5"
+                      style={{ textDecoration: 'none', cursor: 'pointer' }}
+                    >
                     <div className="flex-1 min-w-0">
                       <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#E8E6F0', marginBottom: 4 }}>
                         {c.title}
@@ -1658,7 +1663,7 @@ function DashboardContent() {
                       </div>
                       <div style={{ fontFamily: 'Switzer, sans-serif', fontSize: 9, color: '#8B7EC8', marginTop: 2 }}>pts</div>
                     </div>
-                    </div>
+                    </Link>
 
                   {/* Compact action row */}
                   {(c.status === 'submitted' || c.status === 'rejected' || c.status === 'ai_approved') && (

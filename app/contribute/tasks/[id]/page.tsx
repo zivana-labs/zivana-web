@@ -58,6 +58,7 @@ function TaskDetailContent() {
   const [claimed, setClaimed] = useState(false)
   const [claimError, setClaimError] = useState('')
   const [notFound, setNotFound] = useState(false)
+  const [submissionId, setSubmissionId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -65,6 +66,7 @@ function TaskDetailContent() {
       const publicClient = createPublicClient()
 
       // Load contributor session if authenticated
+      let contributorId: string | null = null
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: contributorData } = await supabase
@@ -75,6 +77,7 @@ function TaskDetailContent() {
           .single()
 
         if (contributorData) {
+          contributorId = contributorData.id
           setContributor(contributorData)
           const { count } = await supabase
             .from('tasks')
@@ -98,13 +101,21 @@ function TaskDetailContent() {
         return
       }
 
-      if (taskData.status !== 'open') {
-        setNotFound(true)
-        setLoading(false)
-        return
+      setTask(taskData)
+
+      // If viewer submitted work for this task, surface a link to their submission.
+      if (contributorId) {
+        const { data: contrib } = await supabase
+          .from('contributions')
+          .select('id')
+          .eq('task_id', taskId)
+          .eq('contributor_id', contributorId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (contrib) setSubmissionId(contrib.id)
       }
 
-      setTask(taskData)
       setLoading(false)
     }
     load()
@@ -317,7 +328,31 @@ function TaskDetailContent() {
             </p>
           )}
 
-          {!contributor ? (
+          {task!.status !== 'open' ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span style={{ fontFamily: 'Switzer, sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6B5FA0' }}>Status</span>
+                <span style={{ padding: '3px 12px', borderRadius: 20, background: '#1E1640', color: '#C4B5FD', fontFamily: 'Switzer, sans-serif', fontSize: 11, textTransform: 'capitalize' }}>
+                  {task!.status}
+                </span>
+              </div>
+              <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
+                {task!.status === 'completed'
+                  ? 'This task has been completed and is no longer open for claiming.'
+                  : 'This task is currently assigned and not open for claiming.'}
+              </p>
+              <div className="flex gap-3">
+                {submissionId && (
+                  <Link href={`/contribute/dashboard/submissions/${submissionId}`} className="btn-primary" style={{ fontSize: 13 }}>
+                    View submission
+                  </Link>
+                )}
+                <Link href="/contribute/tasks" className="btn-outline" style={{ fontSize: 13 }}>
+                  Browse open tasks
+                </Link>
+              </div>
+            </div>
+          ) : !contributor ? (
             <div className="flex flex-col gap-3">
               <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 14, color: '#7B6FA8', lineHeight: 1.7 }}>
                 Sign in to claim this task and start earning points toward your $ZVN allocation.
