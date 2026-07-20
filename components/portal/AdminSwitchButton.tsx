@@ -21,7 +21,9 @@ export default function AdminSwitchButton() {
         .eq('is_active', true)
         .single()
 
-      console.log('Core team check:', { data, error, userId: user.id })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Core team check:', { data, error, userId: user.id })
+      }
 
       if (data) setIsCoreTeam(true)
     }

@@ -132,7 +132,11 @@ function ContributionsContent() {
       ? Math.max(range[0], Math.min(range[1], basePoints))
       : basePoints
 
-    const finalPoints = Math.round(clampedBasePoints * (selected.timing_multiplier ?? 1.0))
+    // H-2 — timing_multiplier is written by the client on submit; clamp it to the
+    // legitimate range (0.8x late … 1.2x early) so a forged value cannot inflate points.
+    const rawMultiplier = selected.timing_multiplier ?? 1.0
+    const clampedMultiplier = Math.max(0.8, Math.min(1.2, rawMultiplier))
+    const finalPoints = Math.round(clampedBasePoints * clampedMultiplier)
 
     // MED-5 — record which core team member performed the verification
     const { data: { user } } = await supabase.auth.getUser()
@@ -153,6 +157,7 @@ function ContributionsContent() {
         status: 'verified',
         final_points: finalPoints,
         base_points: clampedBasePoints,
+        timing_multiplier: clampedMultiplier,
         notes: reviewNotes || null,
         verified_at: new Date().toISOString(),
         verified_by: verifiedById,

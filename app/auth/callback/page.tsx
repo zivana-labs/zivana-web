@@ -29,7 +29,11 @@ export default function CallbackPage() {
 
       if (session) {
         const next = new URLSearchParams(window.location.search).get('next')
-        router.replace(next ?? '/contribute/dashboard')
+        // M-1 — only allow same-origin relative paths; reject absolute URLs,
+        // protocol-relative (//evil), and backslash tricks (/\evil) to prevent
+        // an open redirect off the post-authentication landing.
+        const safeNext = next && /^\/(?![/\\])/.test(next) ? next : '/contribute/dashboard'
+        router.replace(safeNext)
         return
       }
 

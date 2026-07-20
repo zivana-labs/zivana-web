@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
 import { logAudit } from '@/lib/audit'
+import { authedJsonHeaders } from '@/lib/adminFetch'
 
 const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), { ssr: false })
 
@@ -149,7 +150,7 @@ function CreateTaskContent() {
 
           await fetch('/api/email/send', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await authedJsonHeaders(),
             body: JSON.stringify({
               to: assignedContributor.email,
               name: displayName,

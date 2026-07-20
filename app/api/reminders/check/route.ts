@@ -206,13 +206,19 @@ async function sendEmail(
   })
 }
 
+// Escape legacy-Markdown control characters so a crafted task title cannot
+// break formatting or inject entities in the Telegram message. (L-3)
+function escMarkdown(str: string): string {
+  return str.replace(/([_*`[])/g, '\\$1')
+}
+
 async function sendTelegram(chatId: string, subject: string, body: string) {
   await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      text: `*${subject}*\n\n${body}`,
+      text: `*${escMarkdown(subject)}*\n\n${escMarkdown(body)}`,
       parse_mode: 'Markdown',
     }),
   })
