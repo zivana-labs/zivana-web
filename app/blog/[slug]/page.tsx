@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import DOMPurify from 'isomorphic-dompurify'
 import { getZivanaPost, getRelatedZivanaPosts } from '@/lib/blog'
 import { POST_TYPE_CONFIG } from '@/lib/constants'
 
@@ -129,7 +130,17 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <div className="max-w-3xl mx-auto px-8 lg:px-14">
           <div
             className="zivana-prose"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(post.content ?? '', {
+                ALLOWED_TAGS: [
+                  'p', 'h2', 'h3', 'h4', 'blockquote', 'strong', 'em', 'u', 's',
+                  'ul', 'ol', 'li', 'a', 'br', 'hr', 'span', 'div', 'code', 'pre',
+                  'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                ],
+                ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'title'],
+                ALLOW_DATA_ATTR: false,
+              }),
+            }}
           />
 
           {post.tags && post.tags.length > 0 && (

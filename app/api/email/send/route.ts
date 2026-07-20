@@ -1,15 +1,34 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+// Service client for verifying the caller's identity and core-team membership.
+const serviceClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(request: NextRequest) {
   try {
-    // Origin check
-    const origin = request.headers.get('origin')
-    const allowedOrigins = [
-      'https://zivana.network',
-      'http://localhost:3000',
-      'https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app'
-    ]
-    if (!origin || !allowedOrigins.includes(origin)) {
+    // Require an authenticated, active core-team member — not a spoofable Origin header.
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const token = authHeader.slice('Bearer '.length)
+
+    const { data: { user }, error: userError } = await serviceClient.auth.getUser(token)
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: actor } = await serviceClient
+      .from('core_team')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single()
+
+    if (!actor) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -27,13 +46,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid recipient email' }, { status: 400 })
     }
 
-    if (process.env.NODE_ENV !== 'development') {
-      // Only log in development
-    } else {
-      console.log('Email send attempt to:', to)
-      console.log('BREVO_API_KEY_REST exists:', !!process.env.BREVO_API_KEY_REST)
-    }
-
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -49,8 +61,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
-      const responseText = await response.text()
       if (process.env.NODE_ENV === 'development') {
+        const responseText = await response.text()
         console.log('Brevo response status:', response.status)
         console.log('Brevo response body:', responseText)
       }

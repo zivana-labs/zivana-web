@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { authedJsonHeaders } from '@/lib/adminFetch'
 
 type Contributor = {
   id: string
@@ -705,7 +706,6 @@ function DashboardContent() {
           deadline_at,
           evidence_url: form.evidence_url || null,
           status: 'submitted',
-          submission_count: (existing.submission_count ?? 1) + 1,
         })
         .eq('id', existing.id)
         .select('id')
@@ -728,7 +728,6 @@ function DashboardContent() {
           deadline_at,
           evidence_url: form.evidence_url || null,
           status: 'submitted',
-          submission_count: 1,
           task_id: claimedTaskId || null,
         })
         .select('id')
@@ -751,7 +750,7 @@ function DashboardContent() {
       try {
         const reviewResponse = await fetch('/api/review/submit', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authedJsonHeaders(),
           body: JSON.stringify({
             contribution_id: insertedContribution.id,
             contributor_id: contributor.id,
@@ -771,21 +770,9 @@ function DashboardContent() {
           const reviewResult = await reviewResponse.json()
           reviewDecision = reviewResult.decision
           reviewFeedbackData = reviewResult.feedback
-
-          // Save review result via server-side route — bypasses RLS
-          await fetch('/api/review/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contribution_id: insertedContribution.id,
-              review_decision: reviewResult.decision,
-              review_score: reviewResult.overall_score,
-              review_feedback: reviewResult.feedback,
-              code_audit: reviewResult.code_audit ?? null,
-              base_points,
-              timing_multiplier,
-            }),
-          })
+          // /api/review/submit now persists the review result itself, server-side —
+          // the browser no longer calls /api/review/save directly (that write path
+          // requires a signed request it has no legitimate way to produce).
         }
       } catch (reviewErr) {
         // Review service failure is non-fatal — contribution stays as submitted

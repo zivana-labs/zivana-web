@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Suspense } from 'react'
 import { logAudit } from '@/lib/audit'
+import { authedJsonHeaders } from '@/lib/adminFetch'
 
 type Contributor = {
   id: string
@@ -118,7 +119,7 @@ function ContributorsContent() {
 
         await fetch('/api/email/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authedJsonHeaders(),
           body: JSON.stringify({
             to: selected.email,
             name: contributorName,
@@ -179,7 +180,7 @@ function ContributorsContent() {
 
     await fetch('/api/email/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authedJsonHeaders(),
       body: JSON.stringify({
         to: selected.email,
         subject: 'Your Zivana contributor application needs revision',
@@ -232,7 +233,7 @@ function ContributorsContent() {
 
     await fetch('/api/email/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authedJsonHeaders(),
       body: JSON.stringify({
         to: selected.email,
         subject: 'Update on your Zivana contributor application',

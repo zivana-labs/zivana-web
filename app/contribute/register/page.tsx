@@ -166,7 +166,9 @@ export default function RegisterPage() {
     }
 
     if (insertError) {
-      console.error('Insert error full:', JSON.stringify(insertError))
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Insert error full:', JSON.stringify(insertError))
+      }
       if (insertError.code === '23505') {
         setError('This email is already registered. Sign in from the contribute page.')
       } else if (insertError.code === '42501') {
