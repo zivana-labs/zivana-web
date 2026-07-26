@@ -65,7 +65,6 @@ type Submission = {
   updated_at: string | null
   contributor_id: string
   task_id: string | null
-  contributors: { id: string; user_id: string | null; name: string; email: string } | null
   tasks: TaskRef
 }
 
@@ -111,11 +110,12 @@ export default function SubmissionDetailPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/contribute'); return }
 
+      // RLS scopes contributions SELECT to the owner, so a non-owner's fetch
+      // returns no row and falls through to "Submission not found" below.
       const { data, error } = await supabase
         .from('contributions')
         .select(`
           *,
-          contributors ( id, user_id, name, email ),
           tasks ( id, title, description, category, complexity, status,
                    point_range_min, point_range_max, deadline_days, primitives, links )
         `)
@@ -123,9 +123,6 @@ export default function SubmissionDetailPage() {
         .single()
 
       if (error || !data) { setError('Submission not found.'); setLoading(false); return }
-      if (data.contributors?.user_id && data.contributors.user_id !== user.id) {
-        setError('You do not have access to this submission.'); setLoading(false); return
-      }
       setSub(data as Submission)
       setLoading(false)
     }

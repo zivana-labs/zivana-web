@@ -196,7 +196,7 @@ function ContributionsContent() {
         target_type: 'contribution',
         target_id: selected.id,
         target_label: selected.title,
-        metadata: { points: finalPoints, category: selected.category },
+        metadata: { points: finalPoints, category: selected.category, override: selected.status === 'rejected' },
       })
       setSelected(null)
       await fetchContributions()
