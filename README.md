@@ -5,7 +5,7 @@ The official website and contributor portal for [Zivana Protocol](https://zivana
 | Environment | URL |
 |---|---|
 | Production | https://zivana.network |
-| Preview (`develop`) | [preview deployment](https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app) |
+| Preview (`develop`) | Internal Vercel preview |
 
 ---
 
@@ -42,7 +42,7 @@ cp .env.example .env.local   # fill in the values
 npm run dev                  # http://localhost:3000
 ```
 
-See [docs/07-deployment.md](docs/07-deployment.md) for every environment variable.
+See `.env.example` for the full list of environment variables.
 
 ## Scripts
 
@@ -63,16 +63,7 @@ Never push directly to `main`. Work lands on `develop` first, and the founder me
 
 ## Documentation
 
-| Document | Contents |
-|---|---|
-| [Architecture](docs/01-architecture.md) | Tech stack, routing, project structure, conventions |
-| [Authentication](docs/02-authentication.md) | Magic link flow and session management |
-| [Database](docs/03-database.md) | Tables, functions, RLS policies |
-| [Contributor portal](docs/04-contributor-portal.md) | Portal features, claiming, submission, AI review |
-| [Admin panel](docs/05-admin-panel.md) | Admin features, permissions, audit log |
-| [API routes](docs/06-api-routes.md) | Every API route |
-| [Deployment](docs/07-deployment.md) | Environment variables and deploy workflow |
-| [Known issues](docs/08-known-issues.md) | Deferred work and limitations |
+Contributor guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md) and the [contributor brief](CONTRIBUTOR_BRIEF.md). Detailed architecture, database, and operations documentation is maintained internally by the core team.
 
 ## Licence
 
