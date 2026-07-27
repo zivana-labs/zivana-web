@@ -1,6 +1,6 @@
 # Authentication
 
-This document covers the complete authentication system used in Zivana web — how magic links work, why the implicit flow was chosen, how sessions are managed, and how auth checks are implemented across the portal and admin panel.
+This document covers the complete authentication system used in Zivana web, how magic links work, why the implicit flow was chosen, how sessions are managed, and how auth checks are implemented across the portal and admin panel.
 
 ---
 
@@ -23,9 +23,9 @@ Core team members sign in as contributors first. The admin panel is accessed via
 
 Supabase supports two auth flows for magic links:
 
-**PKCE flow (default in `@supabase/ssr`)** — generates a code verifier stored in the browser's local storage at the time the magic link is requested. The callback route exchanges the code for a session. The code verifier must exist in the same browser that requested the link. Opening the link on a different browser or device fails with an expired or invalid link error.
+**PKCE flow (default in `@supabase/ssr`)**, generates a code verifier stored in the browser's local storage at the time the magic link is requested. The callback route exchanges the code for a session. The code verifier must exist in the same browser that requested the link. Opening the link on a different browser or device fails with an expired or invalid link error.
 
-**Implicit flow** — the magic link delivers the session token directly in the URL fragment (`#access_token=...`). The client-side callback page reads the fragment and exchanges it for a session. No browser-specific state is required. The link works on any browser, any device, any profile.
+**Implicit flow**, the magic link delivers the session token directly in the URL fragment (`#access_token=...`). The client-side callback page reads the fragment and exchanges it for a session. No browser-specific state is required. The link works on any browser, any device, any profile.
 
 Zivana uses the **implicit flow** because contributors and core team members frequently open magic links on mobile devices after requesting them on desktop, or in different browsers. PKCE would make this impossible and create a frustrating user experience.
 
@@ -45,7 +45,7 @@ Zivana uses the **implicit flow** because contributors and core team members fre
 8. A 500ms delay allows Supabase to process the URL fragment
 9. supabase.auth.getSession() reads the fragment and establishes a session
 11. Session is stored in localStorage
-12. User is redirected to /contribute/dashboard
+12. The contributor is redirected to /contribute/dashboard, or to a validated same-origin next path when one was provided
 
 ---
 
@@ -77,32 +77,39 @@ const { error } = await supabase.auth.signInWithOtp({
 'use client'
 
 useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const error = params.get('error')
+  if (error) {
+    setErrorMsg(params.get('error_description')?.replace(/\+/g, ' ') ?? error)
+    setChecking(false)
+    return
+  }
+
   const handleCallback = async () => {
     await new Promise(resolve => setTimeout(resolve, 500))
     const { data: { session } } = await supabase.auth.getSession()
+
     if (session) {
-      router.replace('/contribute/dashboard')
+      const next = new URLSearchParams(window.location.search).get('next')
+      // Only allow same-origin relative paths. Absolute URLs, protocol
+      // relative (//host), and backslash tricks (/\host) are rejected so the
+      // post sign in redirect cannot be pointed off site.
+      const safeNext = next && /^\/(?![/\\])/.test(next) ? next : '/contribute/dashboard'
+      router.replace(safeNext)
       return
     }
+
     setErrorMsg('Sign in link is invalid or has expired.')
     setChecking(false)
   }
-
-  // Also listen for auth state change as a parallel path
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        subscription.unsubscribe()
-        router.replace('/contribute/dashboard')
-      }
-    }
-  )
 
   handleCallback()
 }, [router])
 ```
 
 The 500ms delay is intentional. It allows the Supabase client to finish processing the URL fragment before `getSession()` is called. Without the delay `getSession()` sometimes returns null even when the token is present in the fragment.
+
+The redirect destination comes from an optional `next` query parameter. It is validated to be a same-origin relative path before use, so it cannot be pointed at an external site. If it is missing or fails validation the contributor lands on `/contribute/dashboard`.
 
 ---
 
@@ -178,7 +185,7 @@ Signing out clears the session from localStorage and invalidates the refresh tok
 
 The magic link email is sent by Supabase via Brevo SMTP. The template is configured in the Supabase dashboard under **Authentication** then **Email Templates** then **Magic Link**.
 
-The template uses `{{ .ConfirmationURL }}` as the link target. This delivers the token in the URL fragment which is required for the implicit flow. Do not change this to `token_hash` — that switches to server-side verification which reintroduces the cross-browser limitation.
+The template uses `{{ .ConfirmationURL }}` as the link target. This delivers the token in the URL fragment which is required for the implicit flow. Do not change this to `token_hash`, that switches to server-side verification which reintroduces the cross-browser limitation.
 
 The sender name is **Zivana Network** and the sender email is `hello@zivana.network`. This matches the sender name used in all other Zivana transactional emails to avoid confusion.
 

@@ -6,7 +6,7 @@ This document covers environment variables, the Vercel deployment setup, the bra
 
 ## Environment variables
 
-All environment variables must be set in `.env.local` for local development and in Vercel environment variables for deployed environments. Never commit `.env.local` to the repository — it is listed in `.gitignore`.
+All environment variables must be set in `.env.local` for local development and in Vercel environment variables for deployed environments. Never commit `.env.local` to the repository, it is listed in `.gitignore`.
 
 Copy `.env.example` to `.env.local` and fill in each value:
 
@@ -20,10 +20,10 @@ cp .env.example .env.local
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL — found in Supabase dashboard under Settings then API |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable key starting with `sb_publishable_` — used by the SSR server client |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Legacy anon key starting with `eyJ` — used by the browser client for implicit flow auth and public reads |
-| `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` | Yes | Legacy service role key starting with `eyJ` — server-side only, never expose to browser |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL, found in Supabase dashboard under Settings then API |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable key starting with `sb_publishable_`, used by the SSR server client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Legacy anon key starting with `eyJ`, used by the browser client for implicit flow auth and public reads |
+| `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY` | Yes | Legacy service role key starting with `eyJ`, server-side only, never expose to browser |
 
 **Important:** Two separate Supabase key formats exist. The new `sb_` format keys do not work with `@supabase/supabase-js` for service role operations. Always use the legacy `eyJ` format keys for `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PRIVATE_SUPABASE_SERVICE_ROLE_KEY`. Find them under Supabase dashboard **Settings** then **API Keys** then **Legacy API Keys**.
 
@@ -31,8 +31,8 @@ cp .env.example .env.local
 
 | Variable | Required | Description |
 |---|---|---|
-| `BREVO_API_KEY` | Yes | Brevo SMTP key starting with `xsmtpsib-` — used by Supabase for magic link emails via SMTP relay |
-| `BREVO_API_KEY_REST` | Yes | Brevo REST API key starting with `xkeysib-` — used by the `/api/email/send` route for transactional emails |
+| `BREVO_API_KEY` | Yes | Brevo SMTP key starting with `xsmtpsib-`, used by Supabase for magic link emails via SMTP relay |
+| `BREVO_API_KEY_REST` | Yes | Brevo REST API key starting with `xkeysib-`, used by the `/api/email/send` route for transactional emails |
 
 These are two different keys for two different Brevo services. The SMTP key is configured in the Supabase dashboard under **Authentication** then **SMTP Settings**. The REST key is used directly in the application code.
 
@@ -40,8 +40,9 @@ These are two different keys for two different Brevo services. The SMTP key is c
 
 | Variable | Required | Description |
 |---|---|---|
-| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from BotFather — format: `{bot_id}:{token_string}` |
-| `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | Yes | Bot username without @ — e.g. `ZivanaProtocolBot` |
+| `TELEGRAM_BOT_TOKEN` | Yes | Bot token from BotFather, format `{bot_id}:{token_string}` |
+| `TELEGRAM_WEBHOOK_SECRET` | Yes | Shared secret verified against the `x-telegram-bot-api-secret-token` header on every call to `/api/telegram/webhook`. Use the same value when registering the webhook with Telegram |
+| `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | Yes | Bot username without @, for example `ZivanaProtocolBot` |
 
 #### Cron job
 
@@ -58,6 +59,31 @@ openssl rand -hex 32
 -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | % {[char]$_})
 ```
 
+#### Review service
+
+The contribution review service runs as a separate microservice. `/api/review/submit` signs and forwards submissions to it, and `/api/review/save` verifies signed callbacks from it.
+
+| Variable | Required | Description |
+|---|---|---|
+| `REVIEW_SERVICE_URL` | Yes | Base URL of the review microservice. `/api/review/submit` posts to `${REVIEW_SERVICE_URL}/review` |
+| `REVIEW_SERVICE_SECRET` | Yes | Shared secret used to sign the HMAC-SHA256 `X-Zivana-Signature` header sent to the review service, and to verify that same signature on callbacks to `/api/review/save` |
+| `NEXT_PUBLIC_REVIEW_SERVICE_URL` | Yes | Client side feature flag. When set (for example to `enabled`) the contributor dashboard calls the review service on submission |
+
+#### Blog (NexTrium)
+
+The blog reads posts from a separate NexTrium Supabase project through a read only client (`lib/supabase/nextrium.ts`).
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXTRIUM_SUPABASE_URL` | Yes | NexTrium Supabase project URL |
+| `NEXTRIUM_SUPABASE_ANON_KEY` | Yes | NexTrium anon key. Read only, used only to fetch zivana tagged posts for the blog |
+
+#### Site
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | Yes | Public base URL of the site, used where an absolute URL is needed |
+
 ---
 
 ## Supabase configuration
@@ -70,7 +96,7 @@ In the Supabase dashboard under **Authentication** then **URL Configuration**:
 
 https://zivana.network/
 
-**Redirect URLs** — add all of these:
+**Redirect URLs**, add all of these:
 
 https://zivana.network/auth/callback
 
@@ -84,7 +110,7 @@ The wildcard entries cover preview deployments automatically so new Vercel previ
 
 In the Supabase dashboard under **Authentication** then **Email Templates** then **Magic Link**:
 
-The button link must use `{{ .ConfirmationURL }}` — this delivers the token in the URL fragment which is required for the implicit flow cross-browser magic links.
+The button link must use `{{ .ConfirmationURL }}`, this delivers the token in the URL fragment which is required for the implicit flow cross-browser magic links.
 
 The sender must be configured under **Authentication** then **SMTP Settings** using the Brevo SMTP credentials:
 - Host: `smtp-relay.brevo.com`
@@ -96,17 +122,30 @@ The sender must be configured under **Authentication** then **SMTP Settings** us
 
 ### Grants
 
-The following SQL grants must be applied to allow authenticated users to read auth data used in RLS policies:
+These grants define exactly what each role can touch. Row level access is then narrowed further by the RLS policies. The important rule is that the `anon` role must never be given a blanket SELECT on `contributors` or `contributions`, it is granted SELECT only on the public safe columns, so sensitive fields cannot be read even if a query asks for them.
 
 ```sql
+-- Authenticated identity lookups used inside some RLS policies
 GRANT SELECT ON auth.users TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.contributors TO authenticated, anon;
-GRANT SELECT, INSERT, UPDATE ON public.tasks TO authenticated, anon;
-GRANT SELECT, INSERT, UPDATE ON public.contributions TO authenticated, anon;
-GRANT SELECT ON public.contributors TO anon;
+
+-- Signed in application role. Row access is governed by the RLS policies.
+GRANT SELECT, INSERT, UPDATE ON public.contributors  TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.contributions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.tasks TO authenticated;
+
+-- Anonymous role. Tasks are fully public.
 GRANT SELECT ON public.tasks TO anon;
-GRANT SELECT ON public.contributions TO anon;
+
+-- Anonymous reads of contributors and contributions are column scoped to the
+-- public safe columns only. Do NOT add a blanket GRANT SELECT for anon on
+-- these two tables, that would expose email, notes, and review feedback.
+GRANT SELECT (id, name, categories, location, contributor_type, team_name,
+              total_points, verified_contributions, status) ON public.contributors TO anon;
+GRANT SELECT (id, contributor_id, task_id, title, category, complexity,
+              final_points, verified_at, status, evidence_url) ON public.contributions TO anon;
 ```
+
+The public read policies on `contributors` and `contributions` are also scoped to the `anon` role, so a signed in session reads other contributors' public data through the public Supabase client or a `get_public_*` function rather than a direct table select. See `docs/03-database.md` for the full policy model.
 
 ---
 
@@ -132,11 +171,11 @@ Go to Vercel dashboard then your project then **Settings** then **Environment Va
 
 Add each variable from the reference above. For each variable select which environments it applies to:
 
-- **Production** — `main` branch deployments to `zivana.network`
-- **Preview** — all other branch deployments including `develop`
-- **Development** — local `vercel dev` (optional, most developers use `.env.local` instead)
+- **Production**, `main` branch deployments to `zivana.network`
+- **Preview**, all other branch deployments including `develop`
+- **Development**, local `vercel dev` (optional, most developers use `.env.local` instead)
 
-Most variables should be enabled for both Production and Preview. The only exception is if you want to use a separate Supabase project for preview testing — in that case set different `NEXT_PUBLIC_SUPABASE_URL` and key values for Preview vs Production.
+Most variables should be enabled for both Production and Preview. The only exception is if you want to use a separate Supabase project for preview testing, in that case set different `NEXT_PUBLIC_SUPABASE_URL` and key values for Preview vs Production.
 
 ### Cron jobs
 
@@ -155,7 +194,7 @@ Defined in `vercel.json` at the project root:
 
 This runs the reminder check once daily at 8am UTC. The Vercel Hobby plan only supports daily cron jobs. Upgrading to Pro enables hourly scheduling which would improve reminder precision.
 
-Vercel automatically passes the `CRON_SECRET` as the `Authorization: Bearer` header when calling cron routes — this is handled by Vercel internally when the variable is set in the project environment.
+Vercel automatically passes the `CRON_SECRET` as the `Authorization: Bearer` header when calling cron routes, this is handled by Vercel internally when the variable is set in the project environment.
 
 ---
 
@@ -179,14 +218,14 @@ git checkout -b feat/your-feature-name
 git add .
 git commit -m "feat: description of change"
 
-# Push to GitHub — triggers a preview deployment
+# Push to GitHub, triggers a preview deployment
 git push origin feat/your-feature-name
 
 # Open a PR to develop on GitHub
 # Founder reviews and merges to develop
 # develop preview URL is tested
 
-# When develop is stable — merge to main for production
+# When develop is stable, merge to main for production
 git checkout main
 git merge develop
 git push origin main
@@ -255,6 +294,8 @@ CREATE TABLE contributors (
   notification_email boolean DEFAULT true,
   notification_telegram boolean DEFAULT false,
   telegram_chat_id text,
+  revision_notes text,
+  rejection_reason text,
   created_at timestamptz DEFAULT now()
 );
 
@@ -277,6 +318,8 @@ CREATE TABLE tasks (
   extended_deadline_at timestamptz,
   unclaimed_by uuid[],
   unclaimed_at timestamptz[],
+  primitives text[],
+  links jsonb,
   created_at timestamptz DEFAULT now()
 );
 
@@ -299,7 +342,12 @@ CREATE TABLE contributions (
   verified_at timestamptz,
   deadline_at timestamptz,
   notes text,
-  created_at timestamptz DEFAULT now()
+  submission_count integer DEFAULT 1,
+  review_decision text,
+  review_score integer,
+  review_feedback jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- core_team
@@ -333,9 +381,13 @@ CREATE TABLE profiles (
 );
 ```
 
-**Create security definer functions** — see `docs/03-database.md` for the full function definitions.
+**Create security definer functions**, see `docs/03-database.md` for the full function definitions.
 
-**Create RLS policies** — see `docs/03-database.md` for all policy definitions.
+**Create RLS policies**, see `docs/03-database.md` for all policy definitions. The public read policies on `contributors` and `contributions` must be scoped to the `anon` role, not to `public`.
+
+**Apply CHECK constraints** for the base point ranges, the multipliers, and the allowed status values, see `docs/03-database.md`.
+
+**Apply the column level grants** from the Grants section above so the `anon` role can read only the public safe columns of `contributors` and `contributions`.
 
 **Insert the founder record:**
 ```sql
@@ -373,7 +425,7 @@ Verify the site loads at `http://localhost:3000` and sign in works with a magic 
 
 - Import the repository in Vercel
 - Add all environment variables
-- Deploy — Vercel detects Next.js automatically
+- Deploy, Vercel detects Next.js automatically
 
 ### 9. Register the Telegram webhook
 
