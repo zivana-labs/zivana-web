@@ -196,7 +196,7 @@ function ContributionsContent() {
         target_type: 'contribution',
         target_id: selected.id,
         target_label: selected.title,
-        metadata: { points: finalPoints, category: selected.category },
+        metadata: { points: finalPoints, category: selected.category, override: selected.status === 'rejected' },
       })
       setSelected(null)
       await fetchContributions()
@@ -842,9 +842,30 @@ function ContributionsContent() {
                 </p>
               )}
               {selected.status === 'rejected' && (
-                <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5' }}>
-                  This contribution was rejected.
-                </p>
+                <div className="flex flex-col gap-3 w-full">
+                  <p style={{ fontFamily: 'Switzer, sans-serif', fontSize: 13, color: '#FCA5A5' }}>
+                    This contribution was rejected (often by the automated review). A core team
+                    member can override and verify it manually if the rejection was incorrect.
+                  </p>
+                  <button
+                    onClick={handleVerify}
+                    disabled={actionLoading}
+                    style={{
+                      fontSize: 13,
+                      padding: '10px 20px',
+                      borderRadius: 9999,
+                      border: '1px solid rgba(15,118,110,0.4)',
+                      background: 'rgba(15,118,110,0.12)',
+                      color: '#5EEAD4',
+                      fontFamily: 'Switzer, sans-serif',
+                      cursor: actionLoading ? 'not-allowed' : 'pointer',
+                      opacity: actionLoading ? 0.7 : 1,
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    {actionLoading ? 'Verifying...' : 'Verify anyway (override)'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
