@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import DOMPurify from 'dompurify'
 
 const CATEGORY_COLOURS: Record<string, string> = {
   technical:  '#7DD3FC',
@@ -93,6 +94,17 @@ const card = {
 function fmt(d: string | null | undefined) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Task descriptions are HTML from the Tiptap editor, so they must be sanitized
+// and rendered as HTML rather than printed as text. Same allowlist as the task
+// detail pages.
+function sanitize(html: string): string {
+  if (typeof window === 'undefined') return ''
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'h2', 'h3', 'h4', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'br', 'span', 'div'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+  })
 }
 
 export default function SubmissionDetailPage() {
@@ -302,7 +314,10 @@ export default function SubmissionDetailPage() {
                 </Link>
               </div>
               {sub.tasks.description && (
-                <div className="mb-4"><span style={label}>Task description</span><p style={value}>{sub.tasks.description}</p></div>
+                <div className="mb-4">
+                  <span style={label}>Task description</span>
+                  <div style={value} dangerouslySetInnerHTML={{ __html: sanitize(sub.tasks.description) }} />
+                </div>
               )}
               <div className="grid sm:grid-cols-2 gap-y-4 gap-x-8">
                 <div><span style={label}>Status</span><p style={{ ...value, textTransform: 'capitalize' }}>{sub.tasks.status ?? '—'}</p></div>
