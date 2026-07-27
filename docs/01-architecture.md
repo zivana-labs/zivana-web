@@ -1,6 +1,6 @@
 # Architecture
 
-This document covers the technical architecture of the Zivana web project — the tech stack, project structure, routing conventions, and coding patterns used throughout the codebase.
+This document covers the technical architecture of the Zivana web project, the tech stack, project structure, routing conventions, and coding patterns used throughout the codebase.
 
 ---
 
@@ -8,18 +8,18 @@ This document covers the technical architecture of the Zivana web project — th
 
 ### Core framework
 
-**Next.js 14 with App Router**
+**Next.js 16 with App Router**
 
 The project uses the Next.js App Router exclusively. There are no Pages Router files. Every page is a React Server Component by default. Client components are marked with `'use client'` only when they need interactivity, browser APIs, or React hooks.
 
 Key implications:
 - Files in `app/` are server components unless they declare `'use client'`
-- Layouts wrap their children automatically — the layout file in each directory applies to all pages in that directory and its subdirectories
+- Layouts wrap their children automatically, the layout file in each directory applies to all pages in that directory and its subdirectories
 - API routes live in `app/api/` as `route.ts` files using the Web Request/Response API
 
 ### Language
 
-**TypeScript** throughout. Strict mode is enabled. Every component, hook, utility, and API route is typed. Avoid `any` — use `unknown` or define explicit types.
+**TypeScript** throughout. Strict mode is enabled. Every component, hook, utility, and API route is typed. Avoid `any`, use `unknown` or define explicit types.
 
 ### Styling
 
@@ -27,19 +27,19 @@ Key implications:
 
 ### Database and auth
 
-**Supabase** — PostgreSQL database with Row Level Security, real-time subscriptions, and built-in auth. The project uses Supabase magic link authentication with the implicit flow.
+**Supabase**, PostgreSQL database with Row Level Security, real-time subscriptions, and built-in auth. The project uses Supabase magic link authentication with the implicit flow.
 
 ### Rich text
 
-**Tiptap** — used in the admin task creation and editing forms. The editor output is stored as HTML in the database and rendered with `dangerouslySetInnerHTML` on the contributor-facing task views.
+**Tiptap**, used in the admin task creation and editing forms. The editor output is stored as HTML in the database and sanitized with DOMPurify before it is rendered on the contributor facing task views.
 
 ### Email
 
-**Brevo** — transactional email for magic links (via Supabase SMTP integration) and custom emails (contributor approval, task assignment) via the Brevo REST API through the internal `/api/email/send` route.
+**Brevo**, transactional email for magic links (via Supabase SMTP integration) and custom emails (contributor approval, task assignment) via the Brevo REST API through the internal `/api/email/send` route, which requires an authenticated core team caller.
 
 ### Deployment
 
-**Vercel** — automatic deployments on every push. The `main` branch deploys to production at `zivana.network`. The `develop` branch deploys to a preview URL. Cron jobs run daily via `vercel.json`.
+**Vercel**, automatic deployments on every push. The `main` branch deploys to production at `zivana.network`. The `develop` branch deploys to a preview URL. Cron jobs run daily via `vercel.json`.
 
 ---
 
@@ -58,6 +58,8 @@ Key implications:
 | `/litepaper` | Litepaper |
 | `/build` | Build with Zivana |
 | `/brand` | Brand guidelines |
+| `/blog` | Blog index, zivana tagged posts sourced from the NexTrium project |
+| `/blog/[slug]` | Blog post detail |
 
 ### Contributor public routes
 
@@ -67,7 +69,9 @@ Key implications:
 | `/contribute/signin` | Magic link sign in |
 | `/contribute/register` | Contributor registration |
 | `/contribute/tasks` | Public open task board |
+| `/contribute/tasks/[id]` | Public task detail with the claim entry point |
 | `/contribute/leaderboard` | Public contributor leaderboard |
+| `/contribute/contributors/[id]` | Public contributor profile |
 
 ### Auth routes
 
@@ -82,7 +86,9 @@ Key implications:
 |---|---|
 | `/contribute/dashboard` | Overview, contributions, profile tabs |
 | `/contribute/dashboard/tasks` | Portal task board with claim flow |
+| `/contribute/dashboard/tasks/[id]` | Portal task detail |
 | `/contribute/dashboard/leaderboard` | Portal leaderboard |
+| `/contribute/dashboard/submissions/[id]` | Submission detail view |
 
 ### Admin routes (core team only)
 
@@ -94,14 +100,18 @@ Key implications:
 | `/admin/dashboard/tasks` | Manage tasks |
 | `/admin/dashboard/tasks/new` | Create new task |
 | `/admin/dashboard/team` | Core team management (founder only) |
+| `/admin/dashboard/audit` | Admin audit log with filters and CSV export |
 
 ### API routes
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/api/email/send` | POST | Send transactional email via Brevo |
-| `/api/reminders/check` | GET | Daily cron — check deadlines and send reminders |
+| `/api/email/send` | POST | Send transactional email via Brevo (core team only) |
+| `/api/reminders/check` | GET | Daily cron, check deadlines and send reminders |
 | `/api/telegram/webhook` | POST | Telegram bot message handler |
+| `/api/review/submit` | POST | Forward a contribution to the AI review service and persist the result |
+| `/api/review/save` | POST | Signed callback that persists a review decision |
+| `/api/admin/audit` | POST | Append an entry to the admin audit log |
 
 ---
 
@@ -125,9 +135,9 @@ Applied by `app/admin/dashboard/layout.tsx`. Shows the `AdminSidebar` component 
 
 ## Supabase client pattern
 
-The project maintains four distinct Supabase client instances for different contexts:
+The project maintains five distinct Supabase client instances for different contexts:
 
-### `lib/supabase/client.ts` — Browser client
+### `lib/supabase/client.ts`, Browser client
 
 Used in all `'use client'` components. Uses `@supabase/supabase-js` directly with implicit flow. This is the primary client used across the contributor portal and admin panel.
 
@@ -138,19 +148,23 @@ import { createClient } from '@/lib/supabase/client'
 const supabase = createClient()
 ```
 
-**Critical:** This client uses the implicit flow (`flowType: 'implicit'`). Do not switch it to `createBrowserClient` from `@supabase/ssr` — that package forces PKCE which breaks cross-browser magic links.
+**Critical:** This client uses the implicit flow (`flowType: 'implicit'`). Do not switch it to `createBrowserClient` from `@supabase/ssr`, that package forces PKCE which breaks cross-browser magic links.
 
-### `lib/supabase/server.ts` — Server client
+### `lib/supabase/server.ts`, Server client
 
 Used in server components and server actions. Uses `@supabase/ssr` with cookie-based session management.
 
-### `lib/supabase/proxy.ts` — Middleware helper
+### `lib/supabase/proxy.ts`, Middleware helper
 
 Used by the root middleware to refresh sessions on every request.
 
-### `lib/supabase/public.ts` — Public client
+### `lib/supabase/public.ts`, Public client
 
-Used for unauthenticated reads on the public leaderboard and task board. Uses the legacy anon key. Does not require a user session.
+Used for unauthenticated reads on the public leaderboard, public profiles, and task board. Uses the anon key and requires no user session. The anon role is granted read access only to the public safe columns of `contributors` and `contributions`, so these reads never expose email, notes, or review feedback.
+
+### `lib/supabase/nextrium.ts`, NexTrium blog client
+
+A read only client pointed at a separate NexTrium Supabase project. Used only by the `/blog` and `/blog/[slug]` routes to fetch zivana tagged posts. It never receives the service role key and has no write access to the NexTrium database.
 
 ---
 
@@ -186,8 +200,8 @@ Fonts are loaded via `next/font` in the root layout.
 |---|---|---|
 | Cabinet Grotesk | 600, 700 | All headings and display text |
 | Switzer | 300, 400, 500 | All body text, labels, UI copy |
-| Fira Code | 400 | Monospace — code blocks, addresses |
-| Syne | 800 | Wordmark only — never used for anything else |
+| Fira Code | 400 | Monospace, code blocks, addresses |
+| Syne | 800 | Wordmark only, never used for anything else |
 
 ---
 
@@ -213,4 +227,4 @@ All UI text uses sentence case. Only the ZIVANA wordmark is all caps. Button lab
 
 - Prefer explicit return types on functions that return complex objects
 - Use `Record<string, unknown>` over `Record<string, any>`
-- Define database row types explicitly — do not rely on Supabase generated types
+- Define database row types explicitly, do not rely on Supabase generated types

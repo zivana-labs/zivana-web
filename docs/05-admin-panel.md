@@ -1,6 +1,6 @@
 # Admin Panel
 
-This document covers the complete admin panel — access control, every page and its features, the permission matrix, and how the admin panel relates to the contributor portal.
+This document covers the complete admin panel, access control, every page and its features, the permission matrix, and how the admin panel relates to the contributor portal.
 
 ---
 
@@ -38,6 +38,8 @@ if (!data) {
 
 If the user is not authenticated they are redirected to sign in. If they are authenticated but not in the `core_team` table they are redirected to the contributor portal. This check runs on every admin page load.
 
+This client side check gates what renders in the browser. The actual data boundary is enforced by the Row Level Security policies and by the `/api/admin/audit` route, which independently verify active core team membership, so admin data stays protected even if the client gate is bypassed.
+
 ---
 
 ## Admin layout
@@ -47,7 +49,7 @@ If the user is not authenticated they are redirected to sign in. If they are aut
 The `AdminSidebar` contains:
 - Zivana logo
 - Admin Panel label with the current member's role badge
-- Navigation items — role-dependent (Core Team tab is founder-only)
+- Navigation items, role-dependent (Core Team tab is founder-only)
 - Bottom actions: Contributor portal switch, Back to site, Sign out
 
 ---
@@ -74,11 +76,11 @@ The `AdminSidebar` contains:
 | Update core team roles | No | No | No | Yes |
 | Deactivate core team members | No | No | No | Yes |
 
-Role-based permission enforcement is currently handled at the UI level — buttons and actions are shown or hidden based on the current member's role. Database-level enforcement is handled by RLS policies on the relevant tables.
+Role-based permission enforcement is currently handled at the UI level, buttons and actions are shown or hidden based on the current member's role. Database-level enforcement is handled by RLS policies on the relevant tables.
 
 ---
 
-## Admin overview — `/admin/dashboard`
+## Admin overview, `/admin/dashboard`
 
 The landing page for the admin panel. Shows at-a-glance stats and urgent action alerts.
 
@@ -107,13 +109,13 @@ Three action cards at the bottom: Review contributors, Verify contributions, Man
 
 ---
 
-## Contributors — `/admin/dashboard/contributors`
+## Contributors, `/admin/dashboard/contributors`
 
 Manage all contributor applications and accounts.
 
 ### Features
 
-**Filter tabs:** All, Pending, Active, Inactive. The default filter is Pending since that is the most urgent view. The selected filter persists in the URL query parameter so refreshing the page keeps the current filter.
+**Filter tabs:** All, Pending, Revision requested, Active, Inactive, Rejected. The default filter is Pending since that is the most urgent view. The selected filter persists in the URL query parameter so refreshing the page keeps the current filter.
 
 **Search:** Free text search across contributor name and email.
 
@@ -138,29 +140,35 @@ Actions available depend on the contributor's current status:
 
 | Current status | Available actions |
 |---|---|
-| Pending | Approve, Reject |
+| Pending | Approve, Request revision, Reject |
+| Revision requested | Approve, Reject |
 | Active | Deactivate |
 | Inactive | Reactivate |
+| Rejected | Reactivate |
 
-**Approve** — sets `status = active` and sends an approval email to the contributor via Brevo with a link to sign in to their dashboard.
+**Approve**, sets `status = active` and sends an approval email to the contributor via Brevo with a link to sign in to their dashboard.
 
-**Reject** — sets `status = inactive` without sending an email.
+**Request revision**, sets `status = revision_requested`, stores the reviewer note in `revision_notes`, and emails the applicant asking them to revise and resubmit their application.
 
-**Deactivate** — sets `status = inactive`.
+**Reject**, sets `status = rejected`, stores an optional reason in `rejection_reason`, and emails the applicant. The reason is included in the email when one is provided.
 
-**Reactivate** — sets `status = active`.
+**Deactivate**, sets `status = inactive`.
+
+**Reactivate**, sets `status = active`.
+
+Every one of these actions is written to the admin audit log.
 
 The approval email uses the sender name **Zivana Network** to match the magic link email sender for consistency.
 
 ---
 
-## Contributions — `/admin/dashboard/contributions`
+## Contributions, `/admin/dashboard/contributions`
 
 Review and verify work submitted by contributors.
 
 ### Features
 
-**Filter tabs:** All, Submitted, Under review, Verified, Rejected. Default filter is Submitted.
+**Filter tabs:** All, Submitted, AI approved, Under review, Verified, Rejected. Default filter is Submitted.
 
 **Search:** Free text search across contribution title and contributor name.
 
@@ -175,29 +183,35 @@ A modal overlay showing:
 - Category, complexity, and status badges
 - Full description text
 - Evidence URL as a clickable link
-- Timing multiplier indicator — green for early bonus, amber for late penalty
-- Base points input field with the valid range displayed — editable before verification
+- The AI review result when present: the decision, the score, and the structured feedback returned by the review service
+- Timing multiplier indicator, green for early bonus, amber for late penalty
+- Base points input field with the valid range displayed, editable before verification
 - Points calculation preview: `base_points × timing_multiplier = final_points`
-- Review notes textarea — required for rejection, optional for verification
+- Review notes textarea, required for rejection, optional for verification
 
 ### Actions
 
 | Current status | Available actions |
 |---|---|
 | Submitted | Verify, Reject, Mark under review |
+| AI approved | Verify, Reject |
 | Under review | Verify, Reject |
 | Verified | View only |
-| Rejected | View only |
+| Rejected | Verify (override) |
 
-**Verify** — sets `status = verified`, stores `base_points`, calculates and stores `final_points = base_points × timing_multiplier`, sets `verified_at`. The `update_contributor_points` trigger fires and adds points to the contributor's total.
+**Verify**, sets `status = verified` and records `verified_by`. Before writing it clamps `base_points` to the allowed range for the category and complexity, and clamps `timing_multiplier` to the 0.8 to 1.2 range, then stores `final_points = clamped_base_points × clamped_timing_multiplier` and sets `verified_at`. The `update_contributor_points` trigger fires and adds the points to the contributor's total.
 
-**Reject** — sets `status = rejected`, stores the review notes. Notes are visible to the contributor in their dashboard.
+**Reject**, sets `status = rejected` and stores the review notes. Notes are visible to the contributor in their dashboard.
 
-**Mark under review** — sets `status = under_review`. Signals to the contributor that their submission is being actively reviewed.
+**Mark under review**, sets `status = under_review`. Signals to the contributor that their submission is being actively reviewed.
+
+**Verify (override)**, available on a rejected contribution, often one the automated review rejected. A core team member can verify it manually through the same verify path, which keeps the point clamping and records the override in the audit log.
+
+Every verify, reject, and mark under review action is written to the admin audit log.
 
 ---
 
-## Tasks — `/admin/dashboard/tasks`
+## Tasks, `/admin/dashboard/tasks`
 
 Create and manage all tasks on the contributor task board.
 
@@ -211,22 +225,22 @@ Create and manage all tasks on the contributor task board.
 
 **Task list:** Each row shows title, category and complexity badges, point range, deadline days, and status badge. Clicking a row opens the edit panel.
 
-**New task button** — navigates to the dedicated create task page at `/admin/dashboard/tasks/new`.
+**New task button**, navigates to the dedicated create task page at `/admin/dashboard/tasks/new`.
 
 ### Edit panel
 
 A modal overlay for editing an existing task:
 - Title input
-- Description — Tiptap rich text editor
+- Description, Tiptap rich text editor
 - Category and complexity selects
-- Point range and deadline preview — updates automatically when category or complexity changes
+- Point range and deadline preview, updates automatically when category or complexity changes
 
 **Actions:**
-- Save changes — updates the task
-- Unassign task — visible only when `status = assigned`, resets to open and clears `assigned_to`, `claimed_at`, `deadline_at`
-- Delete task — founder only, permanently deletes the task, requires confirmation dialog
+- Save changes, updates the task
+- Unassign task, visible only when `status = assigned`, resets to open and clears `assigned_to`, `claimed_at`, `deadline_at`
+- Delete task, founder only, permanently deletes the task, requires confirmation dialog
 
-### Create task page — `/admin/dashboard/tasks/new`
+### Create task page, `/admin/dashboard/tasks/new`
 
 A dedicated full-page form replacing the previous modal to prevent accidental data loss on refresh or outside click.
 
@@ -244,13 +258,13 @@ The point range and deadline are calculated automatically and shown as a preview
 
 #### Direct assignment mode
 
-Task is assigned directly to a specific contributor. It never appears on the open board. Used for work already in progress or pre-agreed assignments — including backdated work.
+Task is assigned directly to a specific contributor. It never appears on the open board. Used for work already in progress or pre-agreed assignments, including backdated work.
 
 Additional fields:
-- Assign to contributor — searchable dropdown showing all active contributors with name, email, categories, and total points
-- Selected contributor card — shows avatar, full name, email, category badges, and points after selection
-- Start date — date picker, can be a past date for backdated assignments
-- Deadline date — date picker, can be past or future
+- Assign to contributor, searchable dropdown showing all active contributors with name, email, categories, and total points
+- Selected contributor card, shows avatar, full name, email, category badges, and points after selection
+- Start date, date picker, can be a past date for backdated assignments
+- Deadline date, date picker, can be past or future
 
 On creation:
 - `status = assigned`
@@ -264,9 +278,10 @@ On creation:
 The description field uses the Tiptap editor (`components/admin/RichTextEditor.tsx`).
 
 **Available formatting:**
-- Block type dropdown — Paragraph, Heading 2, Heading 3, Bullet list, Numbered list. Changes only the block where the cursor is currently positioned.
-- Bold — applies only when text is selected
-- Italic — applies only when text is selected
+- Block type dropdown, Paragraph, Heading 2, Heading 3, Bullet list, Numbered list. Changes only the block where the cursor is currently positioned.
+- Bold, applies only when text is selected
+- Italic, applies only when text is selected
+- Link, adds or edits a hyperlink on the selected text through a small URL input. A URL entered without a scheme defaults to `https://`
 
 **Behaviour rules:**
 - Default block is always paragraph
@@ -274,11 +289,11 @@ The description field uses the Tiptap editor (`components/admin/RichTextEditor.t
 - Pressing Enter on an empty list item exits the list and returns to paragraph
 - Bold and italic buttons are always visible but only functional when text is selected
 
-The editor outputs HTML which is stored in `tasks.description`. This HTML is rendered with `dangerouslySetInnerHTML` on the contributor-facing task board and portal task pages.
+The editor outputs HTML which is stored in `tasks.description`. This HTML is sanitized with DOMPurify against a tag and attribute allowlist before it is rendered on the contributor facing task board and portal task pages.
 
 ---
 
-## Core team — `/admin/dashboard/team`
+## Core team, `/admin/dashboard/team`
 
 Founder-only page. Non-founders see a locked screen with a message explaining the restriction.
 
@@ -288,14 +303,14 @@ Founder-only page. Non-founders see a locked screen with a message explaining th
 
 ### Edit panel
 
-- Role select — disabled for the current user (cannot change own role)
+- Role select, disabled for the current user (cannot change own role)
 - Department select
 - Save changes button
 
 **Actions:**
-- Save changes — updates role and department
-- Deactivate — sets `is_active = false`. Not available for the current user
-- Reactivate — sets `is_active = true`. Shown only for inactive members
+- Save changes, updates role and department
+- Deactivate, sets `is_active = false`. Not available for the current user
+- Reactivate, sets `is_active = true`. Shown only for inactive members
 
 ### Add member panel
 
@@ -309,6 +324,22 @@ On creation the member record is inserted with `is_active = true` and default pe
 
 ---
 
+## Audit log, /admin/dashboard/audit
+
+A read only record of administrative actions. Every write action across the contributors, contributions, tasks, and core team pages calls the `logAudit` helper (`lib/audit.ts`), which posts to `/api/admin/audit`. That route verifies the caller is an active core team member and writes an entry stamped with the acting member and a description. The client never writes to the audit table directly.
+
+### Features
+
+- A chronological list of audit entries, each showing the acting member, the action, the target, and the time
+- Filters by action type, by actor, and by a date range
+- CSV export of the filtered entries. The export pages through all matching rows rather than stopping at a fixed limit, so a large log exports in full
+
+### What is recorded
+
+Contributor approvals, revision requests, and rejections, contribution verifications and rejections including override verifications, task creation, assignment, updates, and deletion, and core team changes. Each entry stores the action, an optional target type, id, and label, and a small metadata object with extra context such as the points awarded or whether a verification was an override.
+
+---
+
 ## Switching between admin and contributor portal
 
 **From contributor portal to admin panel:**
@@ -317,4 +348,4 @@ Core team members see an **Admin panel** button fixed at the top right of the co
 **From admin panel to contributor portal:**
 The admin sidebar has a **Contributor portal** link at the bottom of the navigation. Clicking navigates to `/contribute/dashboard`.
 
-Both switches preserve the user's session — no re-authentication is required.
+Both switches preserve the user's session, no re-authentication is required.

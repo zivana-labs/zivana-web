@@ -1,127 +1,79 @@
-# Zivana Protocol — Web
+# Zivana Protocol, Web
 
-The official website and contributor portal for [Zivana Protocol](https://zivana.network) — open trust infrastructure for the African informal economy, built on Cardano and Midnight.
-
-## Live
+The official website and contributor portal for [Zivana Protocol](https://zivana.network), open trust infrastructure for the African informal economy, built on Cardano and Midnight.
 
 | Environment | URL |
 |---|---|
 | Production | https://zivana.network |
-| Preview (develop) | https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app |
+| Preview (`develop`) | [preview deployment](https://zivana-web-git-develop-abdulrahman-abdulbasit-adiguns-projects.vercel.app) |
 
 ---
 
-## What this repository contains
+## Contents
 
-- The public marketing website (`zivana.network`)
-- The contributor portal (`zivana.network/contribute`)
-- The admin panel (`zivana.network/admin`)
-- All API routes for email, Telegram notifications, and reminder scheduling
-
----
+- Public marketing site, `zivana.network`
+- Contributor portal, `zivana.network/contribute`
+- Admin panel, `zivana.network/admin`
+- Blog, sourced from the NexTrium project
+- API routes for AI contribution review, transactional email, Telegram notifications, deadline reminders, and the admin audit log
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
-| Styling | Tailwind CSS + inline styles |
+| Styling | Tailwind CSS with inline brand tokens |
 | Animation | Framer Motion |
-| Auth | Supabase (magic link, implicit flow) |
-| Database | Supabase (PostgreSQL) |
-| Rich text | Tiptap |
-| Email | Brevo (transactional) |
+| Auth and database | Supabase (magic link, PostgreSQL, RLS) |
+| Rich text | Tiptap, sanitized with DOMPurify |
+| Email | Brevo |
 | Deployment | Vercel |
-| Version control | GitHub (private, `zivana-labs` org) |
-
----
 
 ## Quick start
 
-### Prerequisites
-
-- Node.js 18 or higher
-- npm 9 or higher
-- A Supabase account with access to the `zivana-contrib` project
-- A Brevo account with a REST API key
-- Git configured with access to `github.com/zivana-labs`
-
-### 1. Clone the repository
+Requires Node.js 20+, npm 9+, and the credentials listed in `.env.example`.
 
 ```bash
 git clone https://github.com/zivana-labs/zivana-web.git
 cd zivana-web
-```
-
-### 2. Install dependencies
-
-```bash
 npm install
+cp .env.example .env.local   # fill in the values
+npm run dev                  # http://localhost:3000
 ```
 
-### 3. Set up environment variables
+See [docs/07-deployment.md](docs/07-deployment.md) for every environment variable.
 
-Copy the example file and fill in your values:
+## Scripts
 
-```bash
-cp .env.example .env.local
-```
-
-See [docs/07-deployment.md](docs/07-deployment.md) for a full description of every variable.
-
-### 4. Run the development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
+| Command | Action |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build for production |
+| `npm run start` | Serve the production build |
 
 ## Branch workflow
 
-| Branch | Purpose |
+| Branch | Deploys to |
 |---|---|
-| `main` | Production — deploys to `zivana.network` |
-| `develop` | Active development — deploys to preview URL |
+| `main` | Production, `zivana.network` |
+| `develop` | Preview URL |
 
-**Never push directly to `main`.** All work goes to `develop` first. The founder reviews and merges to `main` when confirmed working.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution workflow.
-
----
-
-For a detailed explanation of every directory and file see [docs/01-architecture.md](docs/01-architecture.md).
-
----
+Never push directly to `main`. Work lands on `develop` first, and the founder merges to `main` once verified. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
-| [Architecture](./docs/01-architecture.md) | Tech stack, project structure, coding conventions |
-| [Authentication](./docs/02-authentication.md) | Magic link flow, session management |
-| [Database](./docs/03-database.md) | Tables, columns, relationships, RLS policies |
-| [Contributor Portal](./docs/04-contributor-portal.md) | Portal features and user flows |
-| [Admin Panel](./docs/05-admin-panel.md) | Admin features and permissions |
-| [API Routes](./docs/06-api-routes.md) | All API routes documented |
-| [Deployment](./docs/07-deployment.md) | Environment variables and deploy workflow |
-| [Known Issues](./docs/08-known-issues.md) | Deferred work and known limitations |
-
----
-
-## Key contacts
-
-| Role | Contact |
-|---|---|
-| Founder | Abdulbasit Adigun Abdulrahman |
-| Protocol | [zivana.network](https://zivana.network) |
-| GitHub org | [github.com/zivana-labs](https://github.com/zivana-labs) |
-
----
+| [Architecture](docs/01-architecture.md) | Tech stack, routing, project structure, conventions |
+| [Authentication](docs/02-authentication.md) | Magic link flow and session management |
+| [Database](docs/03-database.md) | Tables, functions, RLS policies |
+| [Contributor portal](docs/04-contributor-portal.md) | Portal features, claiming, submission, AI review |
+| [Admin panel](docs/05-admin-panel.md) | Admin features, permissions, audit log |
+| [API routes](docs/06-api-routes.md) | Every API route |
+| [Deployment](docs/07-deployment.md) | Environment variables and deploy workflow |
+| [Known issues](docs/08-known-issues.md) | Deferred work and limitations |
 
 ## Licence
 
-This repository is private. All rights reserved. Unauthorised copying, distribution, or use of any part of this codebase is prohibited.
+Private repository. All rights reserved. Unauthorised copying, distribution, or use of any part of this codebase is prohibited.
