@@ -14,7 +14,23 @@ const securityHeaders = [
   }
 ]
 
+// The contributor portal and its admin moved to Nextrium on 15 Oct 2026:
+// the portal is now contribute.nextrium.org and its admin is the Contributor
+// portal section of dashboard.nextrium.org. Paths map one to one
+// (/contribute/tasks/x -> /tasks/x) and query strings are kept. Temporary
+// (307) for now; make them permanent once the move has settled.
+const PORTAL = 'https://contribute.nextrium.org'
+const PORTAL_ADMIN = 'https://dashboard.nextrium.org/portal'
+
 const nextConfig = {
+  async redirects() {
+    return [
+      { source: '/contribute', destination: `${PORTAL}/`, permanent: false },
+      { source: '/contribute/:path*', destination: `${PORTAL}/:path*`, permanent: false },
+      { source: '/admin', destination: PORTAL_ADMIN, permanent: false },
+      { source: '/admin/:path*', destination: PORTAL_ADMIN, permanent: false },
+    ]
+  },
   async headers() {
     return [
       {
